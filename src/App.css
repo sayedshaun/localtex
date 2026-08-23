@@ -1,0 +1,518 @@
+* {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  margin: 0;
+  height: 100%;
+  background: #1e1e1e;
+  color: #ddd;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.menu-bar {
+  display: flex;
+  align-items: center;
+  background: #2b2b2b;
+  border-bottom: 1px solid #333;
+  padding: 0 4px;
+}
+
+.menu-dropdown {
+  position: relative;
+}
+
+.menu-trigger {
+  background: transparent;
+  border: none;
+  color: #ccc;
+  padding: 5px 10px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.menu-trigger:hover,
+.menu-trigger.open {
+  background: #3d3d3d;
+  color: #fff;
+}
+
+.menu-list {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 1000;
+  min-width: 190px;
+  background: #2d2d2d;
+  border: 1px solid #444;
+  border-radius: 0 0 6px 6px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+}
+
+.menu-item {
+  background: transparent;
+  border: none;
+  color: #ddd;
+  text-align: left;
+  padding: 6px 10px;
+  font-size: 13px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.menu-item:hover:not(:disabled) {
+  background: #3d7eff;
+  color: #fff;
+}
+
+.menu-item:disabled {
+  color: #666;
+  cursor: default;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: #252526;
+  border-bottom: 1px solid #333;
+}
+
+.toolbar .title {
+  font-weight: 600;
+  margin-right: 12px;
+}
+
+.toolbar button {
+  background: #333;
+  color: #eee;
+  border: 1px solid #444;
+  border-radius: 4px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.toolbar button:hover {
+  background: #3d3d3d;
+}
+
+.toolbar button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.toolbar .path {
+  margin-left: auto;
+  color: #888;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.log-toggle-btn {
+  flex: 0 0 auto;
+  background: #333;
+  color: #ccc;
+  border: 1px solid #444;
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.log-toggle-btn:hover {
+  background: #3d3d3d;
+}
+
+.main {
+  flex: 1 1 auto;
+  display: flex;
+  min-height: 0;
+}
+
+.editor-preview-area {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+.split-pane {
+  display: flex;
+  height: 100%;
+  width: 100%;
+}
+
+.split-pane-left,
+.split-pane-right {
+  height: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.split-pane-right {
+  background: #2a2a2a;
+}
+
+.split-pane-divider {
+  flex: 0 0 5px;
+  cursor: col-resize;
+  background: #2d2d2d;
+  border-left: 1px solid #3a3a3a;
+  border-right: 1px solid #3a3a3a;
+}
+
+.split-pane-divider:hover {
+  background: #3d7eff;
+}
+
+.file-tree {
+  flex: 0 0 220px;
+  display: flex;
+  flex-direction: column;
+  background: #202020;
+  border-right: 1px solid #333;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.file-tree-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  color: #999;
+  border-bottom: 1px solid #333;
+}
+
+.tree-header-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.tree-add-btn {
+  background: transparent;
+  border: none;
+  color: #ccc;
+  cursor: pointer;
+  font-size: 11px;
+  line-height: 1;
+  padding: 2px 5px;
+  border-radius: 3px;
+}
+
+.tree-add-btn:hover {
+  background: #333;
+}
+
+.tree-add-btn:hover {
+  color: #fff;
+}
+
+.file-tree-body {
+  flex: 1 1 auto;
+  overflow: auto;
+  padding: 4px 0;
+}
+
+.tree-error {
+  padding: 6px 10px;
+  color: #f88;
+  font-size: 12px;
+}
+
+.tree-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-top: 3px;
+  padding-bottom: 3px;
+  padding-right: 8px;
+  font-size: 13px;
+  color: #ccc;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.tree-row:hover {
+  background: #2a2d2e;
+}
+
+.tree-row.active {
+  background: #094771;
+  color: #fff;
+}
+
+.tree-row.selected {
+  outline: 1px solid #3d7eff;
+  outline-offset: -1px;
+}
+
+.tree-caret {
+  width: 10px;
+  display: inline-block;
+  color: #888;
+  font-size: 10px;
+}
+
+.context-menu {
+  position: fixed;
+  z-index: 1000;
+  min-width: 150px;
+  background: #2d2d2d;
+  border: 1px solid #444;
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+}
+
+.context-menu button {
+  background: transparent;
+  border: none;
+  color: #ddd;
+  text-align: left;
+  padding: 6px 10px;
+  font-size: 13px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.context-menu button:hover {
+  background: #3d7eff;
+  color: #fff;
+}
+
+.context-menu-danger {
+  color: #f88;
+}
+
+.context-menu-danger:hover {
+  background: #a83232 !important;
+  color: #fff !important;
+}
+
+.context-menu-sep {
+  height: 1px;
+  background: #444;
+  margin: 4px 2px;
+}
+
+.pdf-empty {
+  padding: 16px;
+  color: #888;
+}
+
+.pdf-error {
+  color: #f88;
+}
+
+.pdf-viewer {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.pdf-zoom-bar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  background: #252526;
+  border-bottom: 1px solid #333;
+}
+
+.pdf-zoom-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pdf-compile-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #2d6a3e;
+  color: #fff;
+  border: 1px solid #3a8a52;
+  border-radius: 4px;
+  padding: 4px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.pdf-compile-btn:hover:not(:disabled) {
+  background: #35804a;
+}
+
+.pdf-compile-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.pdf-compile-btn.compiling {
+  opacity: 1;
+  background: #2d6a3e;
+  animation: pdf-compile-pulse 1.1s ease-in-out infinite;
+}
+
+.pdf-compile-spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
+  border-radius: 50%;
+  display: inline-block;
+  animation: pdf-compile-spin 0.6s linear infinite;
+}
+
+@keyframes pdf-compile-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes pdf-compile-pulse {
+  0%,
+  100% {
+    background: #2d6a3e;
+  }
+  50% {
+    background: #388f4d;
+  }
+}
+
+.pdf-progress-bar {
+  height: 2px;
+  width: 100%;
+  overflow: hidden;
+  background: transparent;
+}
+
+.pdf-progress-bar.active {
+  background: rgba(61, 126, 255, 0.15);
+  position: relative;
+}
+
+.pdf-progress-bar.active::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 40%;
+  background: #3d7eff;
+  animation: pdf-progress-slide 1.1s ease-in-out infinite;
+}
+
+@keyframes pdf-progress-slide {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(350%);
+  }
+}
+
+.pdf-zoom-controls button {
+  background: #333;
+  color: #eee;
+  border: 1px solid #444;
+  border-radius: 4px;
+  width: 26px;
+  height: 24px;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.pdf-zoom-controls button:hover:not(:disabled) {
+  background: #3d3d3d;
+}
+
+.pdf-zoom-controls button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.pdf-zoom-controls button:last-child {
+  width: auto;
+  padding: 0 8px;
+  font-size: 12px;
+}
+
+.pdf-zoom-pct {
+  min-width: 42px;
+  text-align: center;
+  font-size: 12px;
+  color: #ccc;
+}
+
+.pdf-scroll {
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 0;
+  overflow: auto;
+}
+
+.pdf-pages {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+}
+
+.pdf-page {
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+  max-width: 100%;
+}
+
+.bottom-pane {
+  flex: 0 0 260px;
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid #333;
+  min-height: 0;
+}
+
+.bottom-pane.collapsed {
+  flex: 0 0 0;
+  border-top: none;
+}
+
+.terminal-wrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 4px;
+}
+
+.log {
+  flex: 0 0 auto;
+  max-height: 100px;
+  overflow: auto;
+  margin: 0;
+  padding: 6px 10px;
+  background: #181818;
+  color: #f0a0a0;
+  font-size: 11px;
+  border-top: 1px solid #333;
+}

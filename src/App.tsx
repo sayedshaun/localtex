@@ -1,6 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
-import { open } from "@tauri-apps/plugin-dialog";
 import Editor, { EditorHandle } from "./components/Editor";
 import Terminal from "./components/Terminal";
 import PdfPreview, { PdfPreviewHandle } from "./components/PdfPreview";
@@ -8,12 +6,6 @@ import FileTree from "./components/FileTree";
 import SplitPane from "./components/SplitPane";
 import MenuBar, { Menu } from "./components/MenuBar";
 import "./App.css";
-
-type CompileResult = {
-  success: boolean;
-  log: string;
-  pdf_path: string | null;
-};
 
 function dirName(path: string): string {
   const idx = path.lastIndexOf("/");
@@ -58,20 +50,35 @@ export default function App() {
   const saveTimer = useRef<number | undefined>(undefined);
   const editorRef = useRef<EditorHandle>(null);
   const pdfRef = useRef<PdfPreviewHandle>(null);
+  const openRequestId = useRef(0);
 
   useEffect(() => {
     (async () => {
-      const project = await invoke<{ dir: string; tex_path: string }>(
-        "ensure_default_project",
-      );
+      const project = await window.api.ensureDefaultProject();
       setProjectDir(project.dir);
-      await openFile(project.tex_path);
+      await openFile(project.texPath);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Writes out any edit still waiting in the autosave debounce, so switching
+  // files (or the app closing) can't silently drop it.
+  async function flushPendingSave() {
+    if (!saveTimer.current) return;
+    window.clearTimeout(saveTimer.current);
+    saveTimer.current = undefined;
+    if (texPath) {
+      await window.api.writeTextFile(texPath, content);
+      setDirty(false);
+    }
+  }
+
   async function openFile(path: string) {
-    const text = await invoke<string>("read_text_file", { path });
+    await flushPendingSave();
+    const requestId = ++openRequestId.current;
+    const text = await window.api.readTextFile(path);
+    if (openRequestId.current !== requestId) return; // superseded by a newer open
+
     setTexPath(path);
     setContent(text);
     setLog("");
@@ -79,9 +86,8 @@ export default function App() {
 
     if (path.endsWith(".tex")) {
       const candidatePdf = toPdfPath(path);
-      const exists = await invoke<boolean>("path_exists", {
-        path: candidatePdf,
-      });
+      const exists = await window.api.pathExists(candidatePdf);
+      if (openRequestId.current !== requestId) return;
       setPdfPath(exists ? candidatePdf : null);
     } else {
       setPdfPath(null);
@@ -90,9 +96,9 @@ export default function App() {
   }
 
   async function saveNow() {
-    if (saveTimer.current) window.clearTimeout(saveTimer.current);
+    await flushPendingSave();
     if (texPath) {
-      await invoke("write_text_file", { path: texPath, contents: content });
+      await window.api.writeTextFile(texPath, content);
       setDirty(false);
     }
   }
@@ -102,19 +108,17 @@ export default function App() {
     setDirty(true);
     if (saveTimer.current) window.clearTimeout(saveTimer.current);
     saveTimer.current = window.setTimeout(async () => {
+      saveTimer.current = undefined;
       if (texPath) {
-        await invoke("write_text_file", { path: texPath, contents: next });
+        await window.api.writeTextFile(texPath, next);
         setDirty(false);
       }
     }, 500);
   }
 
   async function handleOpenFileDialog() {
-    const selected = await open({
-      multiple: false,
-      filters: [{ name: "LaTeX", extensions: ["tex"] }],
-    });
-    if (typeof selected === "string") {
+    const selected = await window.api.openFileDialog();
+    if (selected) {
       setProjectDir(dirName(selected));
       await openFile(selected);
     }
@@ -126,6 +130,12 @@ export default function App() {
 
   function handleFileRemoved(path: string) {
     if (texPath && (texPath === path || texPath.startsWith(path + "/"))) {
+      // Cancel rather than flush — the file is gone, so a pending autosave
+      // must not be allowed to write it back into existence.
+      if (saveTimer.current) {
+        window.clearTimeout(saveTimer.current);
+        saveTimer.current = undefined;
+      }
       setTexPath(null);
       setContent("");
       setPdfPath(null);
@@ -138,7 +148,7 @@ export default function App() {
     const name = window.prompt("New file name (e.g. chapter1.tex):");
     if (!name) return;
     try {
-      await invoke("create_file", { path: `${projectDir}/${name}` });
+      await window.api.createFile(`${projectDir}/${name}`);
       setTreeRefreshToken((t) => t + 1);
     } catch (e) {
       alert(String(e));
@@ -150,7 +160,7 @@ export default function App() {
     const name = window.prompt("New folder name:");
     if (!name) return;
     try {
-      await invoke("create_folder", { path: `${projectDir}/${name}` });
+      await window.api.createFolder(`${projectDir}/${name}`);
       setTreeRefreshToken((t) => t + 1);
     } catch (e) {
       alert(String(e));
@@ -161,12 +171,10 @@ export default function App() {
     if (!texPath) return;
     setCompiling(true);
     if (saveTimer.current) window.clearTimeout(saveTimer.current);
-    await invoke("write_text_file", { path: texPath, contents: content });
+    await window.api.writeTextFile(texPath, content);
     setDirty(false);
     try {
-      const result = await invoke<CompileResult>("compile_tex", {
-        path: texPath,
-      });
+      const result = await window.api.compileTex(texPath);
       setLog(result.log);
       setLogVisible(!result.success);
       if (result.success && result.pdf_path) {

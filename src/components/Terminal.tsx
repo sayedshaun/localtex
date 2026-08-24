@@ -1,20 +1,7 @@
 import { useEffect, useRef } from "react";
 import { Terminal as XTerm } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
-import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
 import "@xterm/xterm/css/xterm.css";
-
-type PtyOutputPayload = { id: string; data: string };
-
-function base64ToUint8Array(base64: string): Uint8Array {
-  const binary = atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-  return bytes;
-}
 
 export default function Terminal({ cwd }: { cwd: string }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -39,40 +26,36 @@ export default function Terminal({ cwd }: { cwd: string }) {
     let disposed = false;
 
     (async () => {
-      const id = await invoke<string>("pty_spawn", {
+      const id = await window.api.ptySpawn({
         cols: term.cols,
         rows: term.rows,
         cwd,
       });
       if (disposed) {
-        await invoke("pty_kill", { id });
+        await window.api.ptyKill(id);
         return;
       }
       ptyIdRef.current = id;
 
-      unlistenOutput = await listen<PtyOutputPayload>("pty-output", (event) => {
-        if (event.payload.id !== id) return;
-        term.write(base64ToUint8Array(event.payload.data));
+      unlistenOutput = window.api.onPtyOutput((payload) => {
+        if (payload.id !== id) return;
+        term.write(payload.data);
       });
 
-      unlistenExit = await listen<{ id: string }>("pty-exit", (event) => {
-        if (event.payload.id !== id) return;
+      unlistenExit = window.api.onPtyExit((payload) => {
+        if (payload.id !== id) return;
         term.write("\r\n[process exited]\r\n");
       });
 
       term.onData((data) => {
-        invoke("pty_write", { id, data });
+        window.api.ptyWrite(id, data);
       });
     })();
 
     const resizeObserver = new ResizeObserver(() => {
       fitAddon.fit();
       if (ptyIdRef.current) {
-        invoke("pty_resize", {
-          id: ptyIdRef.current,
-          cols: term.cols,
-          rows: term.rows,
-        });
+        window.api.ptyResize(ptyIdRef.current, term.cols, term.rows);
       }
     });
     resizeObserver.observe(containerRef.current);
@@ -83,7 +66,7 @@ export default function Terminal({ cwd }: { cwd: string }) {
       unlistenOutput?.();
       unlistenExit?.();
       if (ptyIdRef.current) {
-        invoke("pty_kill", { id: ptyIdRef.current });
+        window.api.ptyKill(ptyIdRef.current);
       }
       term.dispose();
     };

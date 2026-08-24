@@ -5,7 +5,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { invoke } from "@tauri-apps/api/core";
 import * as pdfjsLib from "pdfjs-dist";
 import pdfjsWorkerUrl from "pdfjs-dist/build/pdf.worker.mjs?url";
 
@@ -58,7 +57,8 @@ const PdfPreview = forwardRef<
       return;
     }
 
-    invoke<string>("read_binary_file_base64", { path: pdfPath })
+    window.api
+      .readBinaryFileBase64(pdfPath)
       .then(async (base64) => {
         if (cancelled) return;
         const bytes = base64ToUint8Array(base64);

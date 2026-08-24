@@ -1,12 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
-
-type FileEntry = {
-  name: string;
-  path: string;
-  is_dir: boolean;
-  children: FileEntry[] | null;
-};
+import type { FileEntry } from "../electron-api";
 
 type MenuState = {
   x: number;
@@ -104,9 +97,7 @@ export default function FileTree({
 
   async function refresh() {
     try {
-      const result = await invoke<FileEntry[]>("list_project_tree", {
-        root: rootDir,
-      });
+      const result = await window.api.listProjectTree(rootDir);
       setTree(result);
       setError(null);
     } catch (e) {
@@ -157,7 +148,7 @@ export default function FileTree({
     const name = window.prompt("New file name (e.g. chapter1.tex):");
     if (!name) return;
     try {
-      await invoke("create_file", { path: `${dir}/${name}` });
+      await window.api.createFile(`${dir}/${name}`);
       refresh();
     } catch (e) {
       alert(String(e));
@@ -168,7 +159,7 @@ export default function FileTree({
     const name = window.prompt("New folder name:");
     if (!name) return;
     try {
-      await invoke("create_folder", { path: `${dir}/${name}` });
+      await window.api.createFolder(`${dir}/${name}`);
       refresh();
     } catch (e) {
       alert(String(e));
@@ -180,7 +171,7 @@ export default function FileTree({
     if (!name || name === currentName) return;
     const parent = path.slice(0, path.length - currentName.length - 1);
     try {
-      await invoke("rename_path", { from: path, to: `${parent}/${name}` });
+      await window.api.renamePath(path, `${parent}/${name}`);
       onFileRemoved(path);
       refresh();
     } catch (e) {
@@ -192,7 +183,7 @@ export default function FileTree({
     const label = isDir ? "folder and everything inside it" : "file";
     if (!window.confirm(`Delete this ${label}?`)) return;
     try {
-      await invoke("delete_path", { path });
+      await window.api.deletePath(path);
       onFileRemoved(path);
       refresh();
     } catch (e) {

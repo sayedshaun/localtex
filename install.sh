@@ -3,14 +3,13 @@
 #
 # Usage:
 #   ./install.sh
-#   curl -fsSL <raw-url>/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/sayedshaun/localtex/main/install.sh | bash
 #
 set -euo pipefail
 
-REPO_URL="${LOCALTEX_REPO_URL:-}"
+REPO_URL="${LOCALTEX_REPO_URL:-https://github.com/sayedshaun/localtex.git}"
 INSTALL_DIR="${LOCALTEX_INSTALL_DIR:-$HOME/.local/share/localtex}"
 BIN_DIR="$HOME/.local/bin"
-APP_ID="com.localtex.app"
 
 log() { printf '\033[1;36m==>\033[0m %s\n' "$1"; }
 die() { printf '\033[1;31merror:\033[0m %s\n' "$1" >&2; exit 1; }
@@ -25,28 +24,7 @@ require_linux_apt() {
 install_system_packages() {
     log "installing system build dependencies (sudo required)"
     sudo apt-get update -y
-    sudo apt-get install -y \
-        curl \
-        build-essential \
-        pkg-config \
-        libssl-dev \
-        libdbus-1-dev \
-        libwebkit2gtk-4.1-dev \
-        libgtk-3-dev \
-        libayatana-appindicator3-dev \
-        librsvg2-dev \
-        patchelf
-}
-
-install_rust() {
-    if command_exists cargo; then
-        log "rust already installed ($(cargo --version))"
-        return
-    fi
-    log "installing rust (rustup)"
-    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
-    # shellcheck source=/dev/null
-    source "$HOME/.cargo/env"
+    sudo apt-get install -y curl build-essential
 }
 
 install_node() {
@@ -69,7 +47,7 @@ install_tectonic() {
 }
 
 fetch_source() {
-    if [ -f "./src-tauri/tauri.conf.json" ]; then
+    if [ -f "./electron/main.cjs" ]; then
         log "using local source tree: $(pwd)"
         PROJECT_DIR="$(pwd)"
         return
@@ -84,17 +62,16 @@ fetch_source() {
 }
 
 build_app() {
-    log "installing npm dependencies"
+    log "installing npm dependencies (downloads the Electron binary — needs internet)"
     ( cd "$PROJECT_DIR" && npm install )
 
     log "building LocalTeX (release, this can take a few minutes the first time)"
-    source "$HOME/.cargo/env"
-    ( cd "$PROJECT_DIR" && npm run tauri build -- --bundles deb )
+    ( cd "$PROJECT_DIR" && npm run electron:build )
 }
 
 install_bundle() {
     local deb
-    deb=$(find "$PROJECT_DIR/src-tauri/target/release/bundle/deb" -name '*.deb' | head -n1)
+    deb=$(find "$PROJECT_DIR/dist-electron" -name '*.deb' | head -n1)
     [ -n "$deb" ] || die "build did not produce a .deb bundle"
 
     log "installing $deb (sudo required)"
@@ -104,7 +81,6 @@ install_bundle() {
 main() {
     require_linux_apt
     install_system_packages
-    install_rust
     install_node
     install_tectonic
     fetch_source

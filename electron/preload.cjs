@@ -1,0 +1,36 @@
+const { contextBridge, ipcRenderer } = require("electron");
+
+contextBridge.exposeInMainWorld("api", {
+  ensureDefaultProject: () => ipcRenderer.invoke("ensure-default-project"),
+  readTextFile: (path) => ipcRenderer.invoke("read-text-file", path),
+  writeTextFile: (path, contents) =>
+    ipcRenderer.invoke("write-text-file", path, contents),
+  readBinaryFileBase64: (path) =>
+    ipcRenderer.invoke("read-binary-file-base64", path),
+  pathExists: (path) => ipcRenderer.invoke("path-exists", path),
+  openFileDialog: () => ipcRenderer.invoke("open-file-dialog"),
+
+  listProjectTree: (root) => ipcRenderer.invoke("list-project-tree", root),
+  createFile: (path) => ipcRenderer.invoke("create-file", path),
+  createFolder: (path) => ipcRenderer.invoke("create-folder", path),
+  renamePath: (from, to) => ipcRenderer.invoke("rename-path", from, to),
+  deletePath: (path) => ipcRenderer.invoke("delete-path", path),
+
+  compileTex: (path) => ipcRenderer.invoke("compile-tex", path),
+
+  ptySpawn: (opts) => ipcRenderer.invoke("pty-spawn", opts),
+  ptyWrite: (id, data) => ipcRenderer.invoke("pty-write", id, data),
+  ptyResize: (id, cols, rows) =>
+    ipcRenderer.invoke("pty-resize", id, cols, rows),
+  ptyKill: (id) => ipcRenderer.invoke("pty-kill", id),
+  onPtyOutput: (callback) => {
+    const listener = (_e, payload) => callback(payload);
+    ipcRenderer.on("pty-output", listener);
+    return () => ipcRenderer.removeListener("pty-output", listener);
+  },
+  onPtyExit: (callback) => {
+    const listener = (_e, payload) => callback(payload);
+    ipcRenderer.on("pty-exit", listener);
+    return () => ipcRenderer.removeListener("pty-exit", listener);
+  },
+});

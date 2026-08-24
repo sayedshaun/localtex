@@ -49,6 +49,7 @@ const Editor = forwardRef<
   return (
     <CodeMirror
       ref={cmRef}
+      className="code-editor"
       value={value}
       height="100%"
       theme="dark"

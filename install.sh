@@ -21,10 +21,22 @@ require_linux_apt() {
     command_exists apt-get || die "this installer currently supports apt-based distros only"
 }
 
+apt_with_retry() {
+    local attempt
+    for attempt in 1 2 3 4 5; do
+        if sudo "$@"; then
+            return 0
+        fi
+        log "apt is locked (likely packagekitd running in the background) — retrying in 10s ($attempt/5)"
+        sleep 10
+    done
+    die "could not acquire the apt lock after several retries. Try: sudo systemctl stop packagekit"
+}
+
 install_system_packages() {
     log "installing system build dependencies (sudo required)"
-    sudo apt-get update -y
-    sudo apt-get install -y curl build-essential
+    apt_with_retry apt-get update -y
+    apt_with_retry apt-get install -y curl build-essential
 }
 
 install_node() {

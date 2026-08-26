@@ -123,12 +123,6 @@ html, body, #root {
   display: block;
 }
 
-.logo-text {
-  font-weight: 600;
-  color: var(--text-primary);
-  font-size: 14px;
-}
-
 .toolbar > button {
   background: var(--bg-elevated);
   color: var(--text-primary);
@@ -908,24 +902,18 @@ html, body, #root {
 .home {
   flex: 1 1 auto;
   min-height: 0;
-  overflow-y: auto;
-  padding: 32px 40px;
+  display: flex;
   background: var(--bg-app);
 }
 
-.home-header {
+.home-sidebar {
+  flex: 0 0 220px;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  max-width: 900px;
-  margin: 0 auto 24px;
-}
-
-.home-header h1 {
-  font-size: 20px;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin: 0;
+  flex-direction: column;
+  gap: 20px;
+  padding: 24px 16px;
+  background: var(--bg-sidebar);
+  border-right: 1px solid var(--border-color);
 }
 
 .home-new-btn {
@@ -933,7 +921,7 @@ html, body, #root {
   color: #fff;
   border: none;
   border-radius: 5px;
-  padding: 8px 16px;
+  padding: 9px 16px;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
@@ -943,6 +931,68 @@ html, body, #root {
   background: var(--accent-hover);
 }
 
+.home-import-btn {
+  background: transparent;
+  color: var(--text-sidebar);
+  border: 1px solid var(--border-color-soft);
+  border-radius: 5px;
+  padding: 8px 12px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.home-import-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.home-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.home-nav-item {
+  padding: 7px 10px;
+  border-radius: 5px;
+  font-size: 13px;
+  color: var(--text-sidebar);
+}
+
+.home-nav-item-active {
+  background: var(--bg-hover);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.home-content {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-y: auto;
+  padding: 28px 40px;
+}
+
+.home-toolbar {
+  max-width: 900px;
+  margin: 0 auto 20px;
+}
+
+.home-search {
+  width: 100%;
+  max-width: 320px;
+  background: var(--bg-panel);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color-soft);
+  border-radius: 5px;
+  padding: 8px 12px;
+  font-size: 13px;
+  outline: none;
+}
+
+.home-search:focus {
+  border-color: var(--accent);
+}
+
 .home-empty {
   max-width: 900px;
   margin: 40px auto;
@@ -950,73 +1000,89 @@ html, body, #root {
   color: var(--text-secondary);
 }
 
-.home-grid {
+.home-table {
   max-width: 900px;
   margin: 0 auto;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 16px;
+  width: 100%;
+  border-collapse: collapse;
 }
 
-.home-card {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  background: var(--bg-panel);
-  border: 1px solid var(--border-color-soft);
-  border-radius: 8px;
-  padding: 24px 12px 14px;
-  cursor: pointer;
-  transition: border-color 0.15s ease;
-}
-
-.home-card:hover {
-  border-color: var(--accent);
-}
-
-.home-card-icon {
-  font-size: 32px;
-}
-
-.home-card-name {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-primary);
-  text-align: center;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 100%;
-}
-
-.home-card-meta {
+.home-table thead th {
+  text-align: left;
   font-size: 11px;
+  letter-spacing: 0.05em;
   color: var(--text-secondary);
+  font-weight: 600;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-color);
 }
 
-.home-card-delete {
-  position: absolute;
-  top: 6px;
-  right: 6px;
+.home-row {
+  cursor: pointer;
+}
+
+.home-row:hover {
+  background: var(--bg-hover);
+}
+
+.home-row td {
+  padding: 12px;
+  font-size: 13px;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-color-soft);
+}
+
+.home-row-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 500;
+}
+
+.home-row-icon {
+  font-size: 16px;
+}
+
+.home-row-modified {
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.home-row-actions {
+  width: 64px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.home-row-export,
+.home-row-delete {
   background: transparent;
   border: none;
   color: var(--text-secondary);
   cursor: pointer;
-  font-size: 16px;
+  font-size: 14px;
   line-height: 1;
-  padding: 2px 6px;
+  padding: 3px 6px;
   border-radius: 3px;
   opacity: 0;
   transition: opacity 0.1s ease;
 }
 
-.home-card:hover .home-card-delete {
+.home-row-delete {
+  font-size: 16px;
+}
+
+.home-row:hover .home-row-export,
+.home-row:hover .home-row-delete {
   opacity: 1;
 }
 
-.home-card-delete:hover {
+.home-row-export:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.home-row-delete:hover {
   background: #a83232;
   color: #fff;
 }

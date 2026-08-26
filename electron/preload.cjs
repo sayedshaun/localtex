@@ -4,6 +4,11 @@ contextBridge.exposeInMainWorld("api", {
   ensureProjectsRoot: () => ipcRenderer.invoke("ensure-projects-root"),
   listProjects: () => ipcRenderer.invoke("list-projects"),
   createProject: (name) => ipcRenderer.invoke("create-project", name),
+  exportProject: (dir, projectName) =>
+    ipcRenderer.invoke("export-project", dir, projectName),
+  chooseZipFile: () => ipcRenderer.invoke("choose-zip-file"),
+  importProjectZip: (zipPath, name) =>
+    ipcRenderer.invoke("import-project-zip", zipPath, name),
   readTextFile: (path) => ipcRenderer.invoke("read-text-file", path),
   writeTextFile: (path, contents) =>
     ipcRenderer.invoke("write-text-file", path, contents),

@@ -10,6 +10,7 @@ import MenuBar, { Menu } from "./components/MenuBar";
 import PromptDialog, { PromptRequest, PromptState } from "./components/PromptDialog";
 import Home from "./components/Home";
 import { THEMES, THEME_LIST, ThemeId } from "./themes";
+import logoIcon from "./assets/icon.png";
 import "./App.css";
 
 const THEME_STORAGE_KEY = "localtex-theme";
@@ -275,6 +276,15 @@ export default function App() {
     await openFile(path);
   }
 
+  async function handleExportProject() {
+    if (!projectDir) return;
+    try {
+      await window.api.exportProject(projectDir, projectDir.split("/").pop() ?? "project");
+    } catch (e) {
+      alert(String(e));
+    }
+  }
+
   function handleFileRemoved(path: string) {
     if (texPath && (texPath === path || texPath.startsWith(path + "/"))) {
       // Cancel rather than flush — the file is gone, so a pending autosave
@@ -342,6 +352,11 @@ export default function App() {
       items: [
         { label: "Open…", onSelect: handleOpenFileDialog },
         { label: "Save", onSelect: saveNow, disabled: !texPath || viewMode !== "text" },
+        {
+          label: "Export Project (.zip)…",
+          onSelect: handleExportProject,
+          disabled: !projectDir,
+        },
       ],
     },
     {
@@ -385,21 +400,7 @@ export default function App() {
     <div className="app">
       <div className="toolbar">
         <button className="logo-btn" onClick={goHome} title="Home">
-          <svg className="logo-icon" viewBox="0 0 24 24" width="22" height="22">
-            <rect width="24" height="24" rx="6" fill="var(--accent)" />
-            <text
-              x="12"
-              y="17"
-              textAnchor="middle"
-              fontSize="13"
-              fontWeight="700"
-              fontFamily="Georgia, serif"
-              fill="#fff"
-            >
-              L
-            </text>
-          </svg>
-          <span className="logo-text">LocalTeX</span>
+          <img className="logo-icon" src={logoIcon} alt="LocalTeX" width="26" height="26" />
         </button>
         {view === "editor" && (
           <>

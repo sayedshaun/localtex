@@ -33,6 +33,12 @@ function createWindow() {
     },
   });
 
+  // Electron's built-in pinch/ctrl-scroll page zoom scales the whole
+  // window's content independently of our own canvas-based PDF zoom — with
+  // both reacting to the same gesture, the result is a stretched-looking
+  // double zoom. Lock the native one out so only the app's own zoom applies.
+  win.webContents.setVisualZoomLevelLimits(1, 1);
+
   if (isDev) {
     win.loadURL("http://localhost:5173");
     win.webContents.openDevTools({ mode: "detach" });
@@ -122,6 +128,53 @@ ipcMain.handle("create-project", (_e, name) => {
   fs.mkdirSync(dir, { recursive: true });
   const texPath = path.join(dir, "main.tex");
   fs.writeFileSync(texPath, STARTER_TEX);
+  return { name, dir, texPath, modifiedMs: fs.statSync(dir).mtimeMs };
+});
+
+ipcMain.handle("export-project", async (_e, dir, projectName) => {
+  const result = await dialog.showSaveDialog({
+    defaultPath: `${projectName}.zip`,
+    filters: [{ name: "Zip Archive", extensions: ["zip"] }],
+  });
+  if (result.canceled || !result.filePath) return null;
+
+  await new Promise((resolve, reject) => {
+    // Zip the project's *contents* (not the folder itself) so main.tex sits
+    // at the archive root — the layout Overleaf's own project zips use, and
+    // what its "Upload Project" importer expects.
+    execFile("zip", ["-r", result.filePath, "."], { cwd: dir }, (error) => {
+      if (error) reject(error);
+      else resolve();
+    });
+  });
+  return result.filePath;
+});
+
+ipcMain.handle("choose-zip-file", async () => {
+  const result = await dialog.showOpenDialog({
+    properties: ["openFile"],
+    filters: [{ name: "Zip Archive", extensions: ["zip"] }],
+  });
+  if (result.canceled || result.filePaths.length === 0) return null;
+  return result.filePaths[0];
+});
+
+ipcMain.handle("import-project-zip", async (_e, zipPath, name) => {
+  const root = projectsRootDir();
+  const dir = path.join(root, name);
+  if (fs.existsSync(dir)) {
+    throw new Error("a project with that name already exists");
+  }
+  fs.mkdirSync(dir, { recursive: true });
+
+  await new Promise((resolve, reject) => {
+    execFile("unzip", ["-o", zipPath, "-d", dir], (error) => {
+      if (error) reject(error);
+      else resolve();
+    });
+  });
+
+  const texPath = findMainTex(dir);
   return { name, dir, texPath, modifiedMs: fs.statSync(dir).mtimeMs };
 });
 

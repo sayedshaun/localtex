@@ -3,6 +3,7 @@ const path = require("path");
 const fs = require("fs");
 const { execFile } = require("child_process");
 const crypto = require("crypto");
+const zlib = require("zlib");
 const pty = require("node-pty");
 
 const isDev = !app.isPackaged;
@@ -53,18 +54,75 @@ app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
 });
 
-// ---- filesystem / project ----
+// ---- filesystem / projects ----
 
-ipcMain.handle("ensure-default-project", () => {
+function projectsRootDir() {
   const home = process.env.HOME || process.env.USERPROFILE;
   if (!home) throw new Error("HOME not set");
-  const dir = path.join(home, "localtex-workspace");
+  return path.join(home, "LocalTeX-Projects");
+}
+
+function findMainTex(projectDir) {
+  const preferred = path.join(projectDir, "main.tex");
+  if (fs.existsSync(preferred)) return preferred;
+  const texFile = fs
+    .readdirSync(projectDir)
+    .find((name) => name.toLowerCase().endsWith(".tex"));
+  return texFile ? path.join(projectDir, texFile) : null;
+}
+
+ipcMain.handle("ensure-projects-root", () => {
+  const root = projectsRootDir();
+  const rootExisted = fs.existsSync(root);
+  fs.mkdirSync(root, { recursive: true });
+
+  if (!rootExisted) {
+    // First run under the new multi-project layout: bring the old
+    // single-workspace install forward as its first project instead of
+    // silently orphaning it.
+    const home = process.env.HOME || process.env.USERPROFILE;
+    const legacyDir = path.join(home, "localtex-workspace");
+    if (fs.existsSync(legacyDir)) {
+      fs.renameSync(legacyDir, path.join(root, "localtex-workspace"));
+    } else {
+      const dir = path.join(root, "my-first-project");
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, "main.tex"), STARTER_TEX);
+    }
+  }
+
+  return { root };
+});
+
+ipcMain.handle("list-projects", () => {
+  const root = projectsRootDir();
+  if (!fs.existsSync(root)) return [];
+  return fs
+    .readdirSync(root)
+    .filter((name) => !name.startsWith(".") && fs.statSync(path.join(root, name)).isDirectory())
+    .map((name) => {
+      const dir = path.join(root, name);
+      const texPath = findMainTex(dir);
+      return {
+        name,
+        dir,
+        texPath,
+        modifiedMs: fs.statSync(dir).mtimeMs,
+      };
+    })
+    .sort((a, b) => b.modifiedMs - a.modifiedMs);
+});
+
+ipcMain.handle("create-project", (_e, name) => {
+  const root = projectsRootDir();
+  const dir = path.join(root, name);
+  if (fs.existsSync(dir)) {
+    throw new Error("a project with that name already exists");
+  }
   fs.mkdirSync(dir, { recursive: true });
   const texPath = path.join(dir, "main.tex");
-  if (!fs.existsSync(texPath)) {
-    fs.writeFileSync(texPath, STARTER_TEX);
-  }
-  return { dir, texPath };
+  fs.writeFileSync(texPath, STARTER_TEX);
+  return { name, dir, texPath, modifiedMs: fs.statSync(dir).mtimeMs };
 });
 
 ipcMain.handle("read-text-file", (_e, filePath) => {
@@ -90,6 +148,16 @@ ipcMain.handle("open-file-dialog", async () => {
   });
   if (result.canceled || result.filePaths.length === 0) return null;
   return result.filePaths[0];
+});
+
+ipcMain.handle("upload-file", async (_e, dir) => {
+  const result = await dialog.showOpenDialog({
+    properties: ["openFile", "multiSelections"],
+  });
+  if (result.canceled) return;
+  for (const src of result.filePaths) {
+    fs.copyFileSync(src, path.join(dir, path.basename(src)));
+  }
 });
 
 // ---- file tree ----
@@ -147,7 +215,7 @@ ipcMain.handle("compile-tex", (_e, texPath) => {
 
     execFile(
       "tectonic",
-      ["--keep-logs", "--outdir", dir, fileName],
+      ["--keep-logs", "--synctex", "--outdir", dir, fileName],
       { cwd: dir },
       (error, stdout, stderr) => {
         const log = `${stdout}${stderr}`;
@@ -161,6 +229,123 @@ ipcMain.handle("compile-tex", (_e, texPath) => {
       },
     );
   });
+});
+
+// ---- synctex ----
+
+function parseSynctex(gzPath) {
+  const raw = zlib.gunzipSync(fs.readFileSync(gzPath)).toString("utf-8");
+  const lines = raw.split("\n");
+  const inputs = {};
+  const records = [];
+  const pageStack = [];
+  let inContent = false;
+  const inputRe = /^Input:(\d+):(.*)$/;
+  const recordRe = /^\D{0,2}(\d+),(\d+):(-?\d+),(-?\d+)(?::(-?\d+),(-?\d+),(-?\d+))?/;
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line) continue;
+
+    const inputMatch = line.match(inputRe);
+    if (inputMatch) {
+      inputs[inputMatch[1]] = inputMatch[2];
+      continue;
+    }
+    if (line === "Content:") {
+      inContent = true;
+      continue;
+    }
+    if (line === "Postamble:") {
+      inContent = false;
+      continue;
+    }
+    if (!inContent) continue;
+
+    const openPage = line.match(/^\{(\d+)/);
+    if (openPage) {
+      pageStack.push(parseInt(openPage[1], 10));
+      continue;
+    }
+    if (/^\}\d+/.test(line)) {
+      pageStack.pop();
+      continue;
+    }
+    if (pageStack.length === 0) continue;
+
+    const m = line.match(recordRe);
+    if (m) {
+      const w = m[5] !== undefined ? parseInt(m[5], 10) : 0;
+      const h = m[6] !== undefined ? parseInt(m[6], 10) : 0;
+      records.push({
+        fileId: m[1],
+        line: parseInt(m[2], 10),
+        x: parseInt(m[3], 10),
+        y: parseInt(m[4], 10),
+        area: Math.abs(w * h),
+        page: pageStack[pageStack.length - 1],
+      });
+    }
+  }
+
+  return { inputs, records };
+}
+
+function findForwardTarget(parsed, fileId, targetLine) {
+  for (let delta = 0; delta <= 200; delta++) {
+    const candidateLines =
+      delta === 0 ? [targetLine] : [targetLine - delta, targetLine + delta];
+    for (const candidateLine of candidateLines) {
+      const candidates = parsed.records.filter(
+        (r) => r.fileId === fileId && r.line === candidateLine,
+      );
+      if (candidates.length) {
+        candidates.sort((a, b) => a.area - b.area);
+        return candidates[0];
+      }
+    }
+  }
+  return null;
+}
+
+function findReverseTarget(parsed, page, xSp, ySp) {
+  let best = null;
+  let bestDist = Infinity;
+  for (const r of parsed.records) {
+    if (r.page !== page) continue;
+    const dx = r.x - xSp;
+    const dy = r.y - ySp;
+    const dist = dx * dx + dy * dy;
+    if (dist < bestDist) {
+      bestDist = dist;
+      best = r;
+    }
+  }
+  return best;
+}
+
+ipcMain.handle("sync-forward", (_e, texPath, line) => {
+  const gzPath = texPath.replace(/\.tex$/, ".synctex.gz");
+  if (!fs.existsSync(gzPath)) return null;
+  const parsed = parseSynctex(gzPath);
+  const fileId = Object.keys(parsed.inputs).find(
+    (id) => path.resolve(parsed.inputs[id]) === path.resolve(texPath),
+  );
+  if (!fileId) return null;
+  const target = findForwardTarget(parsed, fileId, line);
+  if (!target) return null;
+  return { page: target.page, x: target.x / 65536, y: target.y / 65536 };
+});
+
+ipcMain.handle("sync-reverse", (_e, texPath, page, xPt, yPt) => {
+  const gzPath = texPath.replace(/\.tex$/, ".synctex.gz");
+  if (!fs.existsSync(gzPath)) return null;
+  const parsed = parseSynctex(gzPath);
+  const target = findReverseTarget(parsed, page, xPt * 65536, yPt * 65536);
+  if (!target) return null;
+  const filePath = parsed.inputs[target.fileId];
+  if (!filePath) return null;
+  return { path: path.resolve(filePath), line: target.line };
 });
 
 // ---- pty terminal ----

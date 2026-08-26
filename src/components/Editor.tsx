@@ -5,6 +5,7 @@ import { stex } from "@codemirror/legacy-modes/mode/stex";
 import { EditorView, keymap } from "@codemirror/view";
 import { search, searchKeymap, openSearchPanel } from "@codemirror/search";
 import { undo, redo } from "@codemirror/commands";
+import type { Extension } from "@codemirror/state";
 
 const stexLanguage = StreamLanguage.define(stex);
 
@@ -13,12 +14,14 @@ export type EditorHandle = {
   redo: () => void;
   find: () => void;
   insertAtCursor: (text: string) => void;
+  goToLine: (line: number) => void;
+  getCursorLine: () => number | null;
 };
 
 const Editor = forwardRef<
   EditorHandle,
-  { value: string; onChange: (value: string) => void }
->(function Editor({ value, onChange }, ref) {
+  { value: string; onChange: (value: string) => void; theme: Extension }
+>(function Editor({ value, onChange, theme }, ref) {
   const cmRef = useRef<ReactCodeMirrorRef>(null);
 
   useImperativeHandle(ref, () => ({
@@ -44,6 +47,23 @@ const Editor = forwardRef<
       });
       view.focus();
     },
+    goToLine: (line: number) => {
+      const view = cmRef.current?.view;
+      if (!view) return;
+      const clamped = Math.min(Math.max(line, 1), view.state.doc.lines);
+      const lineInfo = view.state.doc.line(clamped);
+      view.dispatch({
+        selection: { anchor: lineInfo.from, head: lineInfo.from },
+        effects: EditorView.scrollIntoView(lineInfo.from, { y: "center" }),
+      });
+      view.focus();
+    },
+    getCursorLine: () => {
+      const view = cmRef.current?.view;
+      if (!view) return null;
+      const pos = view.state.selection.main.head;
+      return view.state.doc.lineAt(pos).number;
+    },
   }));
 
   return (
@@ -52,10 +72,11 @@ const Editor = forwardRef<
       className="code-editor"
       value={value}
       height="100%"
-      theme="dark"
+      theme={theme}
       extensions={[
         stexLanguage,
         EditorView.lineWrapping,
+        EditorView.contentAttributes.of({ spellcheck: "true" }),
         search(),
         keymap.of(searchKeymap),
       ]}

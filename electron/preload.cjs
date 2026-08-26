@@ -1,7 +1,9 @@
 const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("api", {
-  ensureDefaultProject: () => ipcRenderer.invoke("ensure-default-project"),
+  ensureProjectsRoot: () => ipcRenderer.invoke("ensure-projects-root"),
+  listProjects: () => ipcRenderer.invoke("list-projects"),
+  createProject: (name) => ipcRenderer.invoke("create-project", name),
   readTextFile: (path) => ipcRenderer.invoke("read-text-file", path),
   writeTextFile: (path, contents) =>
     ipcRenderer.invoke("write-text-file", path, contents),
@@ -15,8 +17,13 @@ contextBridge.exposeInMainWorld("api", {
   createFolder: (path) => ipcRenderer.invoke("create-folder", path),
   renamePath: (from, to) => ipcRenderer.invoke("rename-path", from, to),
   deletePath: (path) => ipcRenderer.invoke("delete-path", path),
+  uploadFile: (dir) => ipcRenderer.invoke("upload-file", dir),
 
   compileTex: (path) => ipcRenderer.invoke("compile-tex", path),
+  syncForward: (texPath, line) =>
+    ipcRenderer.invoke("sync-forward", texPath, line),
+  syncReverse: (texPath, page, x, y) =>
+    ipcRenderer.invoke("sync-reverse", texPath, page, x, y),
 
   ptySpawn: (opts) => ipcRenderer.invoke("pty-spawn", opts),
   ptyWrite: (id, data) => ipcRenderer.invoke("pty-write", id, data),

@@ -26,6 +26,7 @@ export type PdfPreviewHandle = {
   zoomIn: () => void;
   zoomOut: () => void;
   resetZoom: () => void;
+  scrollToPosition: (page: number, xPt: number, yPt: number) => void;
 };
 
 const PdfPreview = forwardRef<
@@ -36,8 +37,13 @@ const PdfPreview = forwardRef<
     onCompile: () => void;
     compiling: boolean;
     canCompile: boolean;
+    onSyncClick?: (page: number, xPt: number, yPt: number) => void;
+    standalone?: boolean;
   }
->(function PdfPreview({ pdfPath, reloadToken, onCompile, compiling, canCompile }, ref) {
+>(function PdfPreview(
+  { pdfPath, reloadToken, onCompile, compiling, canCompile, onSyncClick, standalone },
+  ref,
+) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const pagesRef = useRef<HTMLDivElement>(null);
   const pdfDocRef = useRef<pdfjsLib.PDFDocumentProxy | null>(null);
@@ -99,14 +105,30 @@ const PdfPreview = forwardRef<
       const scale = (width / unscaledViewport.width) * zoomRef.current;
       const viewport = page.getViewport({ scale });
 
+      // Render at (at least) 2x the CSS-pixel size — on a HiDPI screen this
+      // matches the real device-pixel density; on a standard screen it still
+      // supersamples text for the crisper look other PDF viewers give, since
+      // rendering 1:1 with the display and letting the browser downsample
+      // slightly looks noticeably softer than native anti-aliased text.
+      const outputScale = Math.max(window.devicePixelRatio || 1, 2);
+
       const canvas = document.createElement("canvas");
       canvas.className = "pdf-page";
-      canvas.width = Math.floor(viewport.width);
-      canvas.height = Math.floor(viewport.height);
+      canvas.width = Math.floor(viewport.width * outputScale);
+      canvas.height = Math.floor(viewport.height * outputScale);
+      canvas.style.width = `${Math.floor(viewport.width)}px`;
+      canvas.style.height = `${Math.floor(viewport.height)}px`;
+      canvas.dataset.page = String(pageNum);
+      canvas.dataset.scale = String(scale);
       const ctx = canvas.getContext("2d");
       if (!ctx) continue;
 
-      await page.render({ canvas, canvasContext: ctx, viewport }).promise;
+      await page.render({
+        canvas,
+        canvasContext: ctx,
+        viewport,
+        transform: outputScale !== 1 ? [outputScale, 0, 0, outputScale, 0, 0] : undefined,
+      }).promise;
       if (renderTokenRef.current !== myToken) return;
       fragment.appendChild(canvas);
     }
@@ -126,6 +148,23 @@ const PdfPreview = forwardRef<
     zoomIn: () => setZoom(zoomRef.current + 0.1),
     zoomOut: () => setZoom(zoomRef.current - 0.1),
     resetZoom: () => setZoom(1),
+    scrollToPosition: (page, _xPt, yPt) => {
+      const container = pagesRef.current;
+      const scroller = scrollRef.current;
+      if (!container || !scroller) return;
+      const canvas = container.querySelector(
+        `canvas[data-page="${page}"]`,
+      ) as HTMLCanvasElement | null;
+      if (!canvas) return;
+      const scale = parseFloat(canvas.dataset.scale ?? "1");
+      const targetY = canvas.offsetTop + yPt * scale;
+      scroller.scrollTo({
+        top: targetY - scroller.clientHeight / 2,
+        behavior: "smooth",
+      });
+      canvas.classList.add("pdf-page-flash");
+      window.setTimeout(() => canvas.classList.remove("pdf-page-flash"), 700);
+    },
   }));
 
   // Re-render at the new width when the pane is resized, throttled to
@@ -181,14 +220,16 @@ const PdfPreview = forwardRef<
   return (
     <div className="pdf-viewer">
       <div className="pdf-zoom-bar">
-        <button
-          className={"pdf-compile-btn" + (compiling ? " compiling" : "")}
-          onClick={onCompile}
-          disabled={compiling || !canCompile}
-        >
-          {compiling && <span className="pdf-compile-spinner" />}
-          {compiling ? "Compiling…" : "Compile"}
-        </button>
+        {!standalone && (
+          <button
+            className={"pdf-compile-btn" + (compiling ? " compiling" : "")}
+            onClick={onCompile}
+            disabled={compiling || !canCompile}
+          >
+            {compiling && <span className="pdf-compile-spinner" />}
+            {compiling ? "Compiling…" : "Compile"}
+          </button>
+        )}
         <div className="pdf-zoom-controls">
           <button
             onClick={() => setZoom(zoomRef.current - 0.1)}
@@ -217,7 +258,23 @@ const PdfPreview = forwardRef<
         <div className="pdf-empty">No PDF yet — compile to see a preview.</div>
       ) : (
         <div ref={scrollRef} className="pdf-scroll">
-          <div ref={pagesRef} className="pdf-pages" />
+          <div
+            ref={pagesRef}
+            className="pdf-pages"
+            onDoubleClick={(e) => {
+              if (!onSyncClick) return;
+              const target = e.target as HTMLElement;
+              if (target.tagName !== "CANVAS") return;
+              const canvas = target as HTMLCanvasElement;
+              const page = parseInt(canvas.dataset.page ?? "0", 10);
+              const scale = parseFloat(canvas.dataset.scale ?? "1");
+              if (!page || !scale) return;
+              const rect = canvas.getBoundingClientRect();
+              const xPt = (e.clientX - rect.left) / scale;
+              const yPt = (e.clientY - rect.top) / scale;
+              onSyncClick(page, xPt, yPt);
+            }}
+          />
         </div>
       )}
     </div>

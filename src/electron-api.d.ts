@@ -11,8 +11,17 @@ export type CompileResult = {
   pdf_path: string | null;
 };
 
+export type ProjectSummary = {
+  name: string;
+  dir: string;
+  texPath: string | null;
+  modifiedMs: number;
+};
+
 export type ElectronApi = {
-  ensureDefaultProject: () => Promise<{ dir: string; texPath: string }>;
+  ensureProjectsRoot: () => Promise<{ root: string }>;
+  listProjects: () => Promise<ProjectSummary[]>;
+  createProject: (name: string) => Promise<ProjectSummary>;
   readTextFile: (path: string) => Promise<string>;
   writeTextFile: (path: string, contents: string) => Promise<void>;
   readBinaryFileBase64: (path: string) => Promise<string>;
@@ -24,8 +33,19 @@ export type ElectronApi = {
   createFolder: (path: string) => Promise<void>;
   renamePath: (from: string, to: string) => Promise<void>;
   deletePath: (path: string) => Promise<void>;
+  uploadFile: (dir: string) => Promise<void>;
 
   compileTex: (path: string) => Promise<CompileResult>;
+  syncForward: (
+    texPath: string,
+    line: number,
+  ) => Promise<{ page: number; x: number; y: number } | null>;
+  syncReverse: (
+    texPath: string,
+    page: number,
+    x: number,
+    y: number,
+  ) => Promise<{ path: string; line: number } | null>;
 
   ptySpawn: (opts: {
     cols: number;

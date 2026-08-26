@@ -1,11 +1,18 @@
 import { useEffect, useRef } from "react";
-import { Terminal as XTerm } from "@xterm/xterm";
+import { Terminal as XTerm, ITheme } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
 
-export default function Terminal({ cwd }: { cwd: string }) {
+export default function Terminal({
+  cwd,
+  theme,
+}: {
+  cwd: string;
+  theme: ITheme;
+}) {
   const containerRef = useRef<HTMLDivElement>(null);
   const ptyIdRef = useRef<string | null>(null);
+  const termRef = useRef<XTerm | null>(null);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -14,8 +21,9 @@ export default function Terminal({ cwd }: { cwd: string }) {
       convertEol: true,
       fontSize: 13,
       fontFamily: "Menlo, Consolas, monospace",
-      theme: { background: "#1e1e1e" },
+      theme,
     });
+    termRef.current = term;
     const fitAddon = new FitAddon();
     term.loadAddon(fitAddon);
     term.open(containerRef.current);
@@ -69,8 +77,16 @@ export default function Terminal({ cwd }: { cwd: string }) {
         window.api.ptyKill(ptyIdRef.current);
       }
       term.dispose();
+      termRef.current = null;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cwd]);
+
+  // Re-theme the live terminal in place — switching themes must not kill
+  // the running shell session (matches the non-destructive show/hide model).
+  useEffect(() => {
+    if (termRef.current) termRef.current.options.theme = theme;
+  }, [theme]);
 
   return <div ref={containerRef} style={{ width: "100%", height: "100%" }} />;
 }

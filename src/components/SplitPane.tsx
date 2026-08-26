@@ -3,12 +3,14 @@ import { useCallback, useRef, useState } from "react";
 export default function SplitPane({
   left,
   right,
+  orientation = "horizontal",
   initialLeftPct = 50,
   minPct = 20,
   maxPct = 80,
 }: {
   left: React.ReactNode;
   right: React.ReactNode;
+  orientation?: "horizontal" | "vertical";
   initialLeftPct?: number;
   minPct?: number;
   maxPct?: number;
@@ -16,27 +18,30 @@ export default function SplitPane({
   const containerRef = useRef<HTMLDivElement>(null);
   const [leftPct, setLeftPct] = useState(initialLeftPct);
   const draggingRef = useRef(false);
+  const vertical = orientation === "vertical";
 
   const onMouseDown = useCallback(() => {
     draggingRef.current = true;
-    document.body.style.cursor = "col-resize";
+    document.body.style.cursor = vertical ? "row-resize" : "col-resize";
     document.body.style.userSelect = "none";
 
     let rafId: number | null = null;
-    let pendingClientX = 0;
+    let pendingClientPos = 0;
 
     const applyPending = () => {
       rafId = null;
       if (!containerRef.current) return;
       const rect = containerRef.current.getBoundingClientRect();
-      let pct = ((pendingClientX - rect.left) / rect.width) * 100;
+      let pct = vertical
+        ? ((pendingClientPos - rect.top) / rect.height) * 100
+        : ((pendingClientPos - rect.left) / rect.width) * 100;
       pct = Math.min(maxPct, Math.max(minPct, pct));
       setLeftPct(pct);
     };
 
     const onMouseMove = (e: MouseEvent) => {
       if (!draggingRef.current) return;
-      pendingClientX = e.clientX;
+      pendingClientPos = vertical ? e.clientY : e.clientX;
       if (rafId === null) rafId = requestAnimationFrame(applyPending);
     };
 
@@ -51,15 +56,26 @@ export default function SplitPane({
 
     window.addEventListener("mousemove", onMouseMove);
     window.addEventListener("mouseup", onMouseUp);
-  }, [minPct, maxPct]);
+  }, [minPct, maxPct, vertical]);
 
   return (
-    <div className="split-pane" ref={containerRef}>
-      <div className="split-pane-left" style={{ width: `${leftPct}%` }}>
+    <div className={"split-pane" + (vertical ? " split-pane-column" : "")} ref={containerRef}>
+      <div
+        className="split-pane-left"
+        style={vertical ? { height: `${leftPct}%` } : { width: `${leftPct}%` }}
+      >
         {left}
       </div>
-      <div className="split-pane-divider" onMouseDown={onMouseDown} />
-      <div className="split-pane-right" style={{ width: `${100 - leftPct}%` }}>
+      <div
+        className={
+          "split-pane-divider" + (vertical ? " split-pane-divider-horizontal" : "")
+        }
+        onMouseDown={onMouseDown}
+      />
+      <div
+        className="split-pane-right"
+        style={vertical ? { height: `${100 - leftPct}%` } : { width: `${100 - leftPct}%` }}
+      >
         {right}
       </div>
     </div>

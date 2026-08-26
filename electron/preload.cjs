@@ -3,7 +3,7 @@ const { contextBridge, ipcRenderer } = require("electron");
 contextBridge.exposeInMainWorld("api", {
   ensureProjectsRoot: () => ipcRenderer.invoke("ensure-projects-root"),
   listProjects: () => ipcRenderer.invoke("list-projects"),
-  createProject: (name) => ipcRenderer.invoke("create-project", name),
+  createProject: (name, lang) => ipcRenderer.invoke("create-project", name, lang),
   exportProject: (dir, projectName) =>
     ipcRenderer.invoke("export-project", dir, projectName),
   chooseZipFile: () => ipcRenderer.invoke("choose-zip-file"),
@@ -18,6 +18,7 @@ contextBridge.exposeInMainWorld("api", {
   openFileDialog: () => ipcRenderer.invoke("open-file-dialog"),
 
   listProjectTree: (root) => ipcRenderer.invoke("list-project-tree", root),
+  searchProject: (root, query) => ipcRenderer.invoke("search-project", root, query),
   createFile: (path) => ipcRenderer.invoke("create-file", path),
   createFolder: (path) => ipcRenderer.invoke("create-folder", path),
   renamePath: (from, to) => ipcRenderer.invoke("rename-path", from, to),

@@ -127,29 +127,43 @@ function UploadIcon() {
   );
 }
 
+// Native HTML5 drag-and-drop (draggable + dragstart/dragover/drop) is
+// unreliable under Electron on Wayland — the OS-level drag it depends on
+// often never engages. This drives moves from plain mouse events instead:
+// mousedown+move past a small threshold starts a drag, mouseenter/leave on
+// candidate drop targets track the current target, mouseup commits it.
 function TreeNode({
   entry,
   activePath,
   selectedDir,
+  draggingPath,
+  dragOverPath,
   onOpenFile,
   onSelectDir,
   onContextMenu,
-  onMoveEntry,
+  onRowMouseDown,
+  onRowMouseEnter,
+  onRowMouseLeave,
   onRename,
   depth,
 }: {
   entry: FileEntry;
   activePath: string | null;
   selectedDir: string;
+  draggingPath: string | null;
+  dragOverPath: string | null;
   onOpenFile: (path: string) => void;
   onSelectDir: (path: string) => void;
   onContextMenu: (e: React.MouseEvent, entry: FileEntry) => void;
-  onMoveEntry: (sourcePath: string, targetDir: string) => void;
+  onRowMouseDown: (e: React.MouseEvent, path: string) => void;
+  onRowMouseEnter: (path: string) => void;
+  onRowMouseLeave: (path: string) => void;
   onRename: (entry: FileEntry) => void;
   depth: number;
 }) {
   const [expanded, setExpanded] = useState(true);
-  const [dragOver, setDragOver] = useState(false);
+  const isDragging = draggingPath === entry.path;
+  const isDragOver = dragOverPath === entry.path && draggingPath !== entry.path;
 
   if (entry.is_dir) {
     return (
@@ -158,27 +172,13 @@ function TreeNode({
           className={
             "tree-row tree-dir" +
             (entry.path === selectedDir ? " selected" : "") +
-            (dragOver ? " drag-over" : "")
+            (isDragOver ? " drag-over" : "") +
+            (isDragging ? " dragging" : "")
           }
           style={{ paddingLeft: 8 + depth * 14 }}
-          draggable
-          onDragStart={(e) => {
-            e.dataTransfer.setData("text/plain", entry.path);
-            e.dataTransfer.effectAllowed = "move";
-          }}
-          onDragOver={(e) => {
-            e.preventDefault();
-            e.dataTransfer.dropEffect = "move";
-            setDragOver(true);
-          }}
-          onDragLeave={() => setDragOver(false)}
-          onDrop={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            setDragOver(false);
-            const source = e.dataTransfer.getData("text/plain");
-            if (source) onMoveEntry(source, entry.path);
-          }}
+          onMouseDown={(e) => onRowMouseDown(e, entry.path)}
+          onMouseEnter={() => onRowMouseEnter(entry.path)}
+          onMouseLeave={() => onRowMouseLeave(entry.path)}
           onClick={() => {
             setExpanded((e) => !e);
             onSelectDir(entry.path);
@@ -200,10 +200,14 @@ function TreeNode({
               entry={child}
               activePath={activePath}
               selectedDir={selectedDir}
+              draggingPath={draggingPath}
+              dragOverPath={dragOverPath}
               onOpenFile={onOpenFile}
               onSelectDir={onSelectDir}
               onContextMenu={onContextMenu}
-              onMoveEntry={onMoveEntry}
+              onRowMouseDown={onRowMouseDown}
+              onRowMouseEnter={onRowMouseEnter}
+              onRowMouseLeave={onRowMouseLeave}
               onRename={onRename}
               depth={depth + 1}
             />
@@ -215,14 +219,12 @@ function TreeNode({
   return (
     <div
       className={
-        "tree-row tree-file" + (entry.path === activePath ? " active" : "")
+        "tree-row tree-file" +
+        (entry.path === activePath ? " active" : "") +
+        (isDragging ? " dragging" : "")
       }
       style={{ paddingLeft: 8 + depth * 14 }}
-      draggable
-      onDragStart={(e) => {
-        e.dataTransfer.setData("text/plain", entry.path);
-        e.dataTransfer.effectAllowed = "move";
-      }}
+      onMouseDown={(e) => onRowMouseDown(e, entry.path)}
       onClick={() => onOpenFile(entry.path)}
       onDoubleClick={(e) => {
         e.stopPropagation();
@@ -256,8 +258,16 @@ export default function FileTree({
   const [selectedDir, setSelectedDir] = useState(rootDir);
   const [menu, setMenu] = useState<MenuState | null>(null);
   const [projectExpanded, setProjectExpanded] = useState(true);
-  const [rootDragOver, setRootDragOver] = useState(false);
+  const [draggingPath, setDraggingPath] = useState<string | null>(null);
+  const [dragOverPath, setDragOverPath] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const dragStateRef = useRef<{
+    path: string;
+    startX: number;
+    startY: number;
+    dragging: boolean;
+  } | null>(null);
+  const dragOverPathRef = useRef<string | null>(null);
 
   const projectName = rootDir.split("/").filter(Boolean).pop() ?? rootDir;
 
@@ -387,6 +397,78 @@ export default function FileTree({
     }
   }
 
+  function handleRowMouseDown(e: React.MouseEvent, path: string) {
+    if (e.button !== 0) return;
+    dragStateRef.current = {
+      path,
+      startX: e.clientX,
+      startY: e.clientY,
+      dragging: false,
+    };
+
+    const onMouseMove = (ev: MouseEvent) => {
+      const s = dragStateRef.current;
+      if (!s) return;
+      if (!s.dragging) {
+        const dx = ev.clientX - s.startX;
+        const dy = ev.clientY - s.startY;
+        if (Math.hypot(dx, dy) > 4) {
+          s.dragging = true;
+          setDraggingPath(s.path);
+          document.body.style.cursor = "grabbing";
+          document.body.style.userSelect = "none";
+        }
+      }
+    };
+
+    const onMouseUp = () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+
+      const s = dragStateRef.current;
+      const target = dragOverPathRef.current;
+      dragStateRef.current = null;
+      setDraggingPath(null);
+      setDragOverPath(null);
+      dragOverPathRef.current = null;
+
+      if (s?.dragging && target && target !== s.path) {
+        moveEntry(s.path, target);
+      }
+    };
+
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+  }
+
+  function handleRowMouseEnter(path: string) {
+    if (!dragStateRef.current?.dragging) return;
+    dragOverPathRef.current = path;
+    setDragOverPath(path);
+  }
+
+  function handleRowMouseLeave(path: string) {
+    if (dragOverPathRef.current === path) {
+      dragOverPathRef.current = null;
+      setDragOverPath(null);
+    }
+  }
+
+  function handleBodyMouseEnter() {
+    if (!dragStateRef.current?.dragging) return;
+    dragOverPathRef.current = rootDir;
+    setDragOverPath(rootDir);
+  }
+
+  function handleBodyMouseLeave() {
+    if (dragOverPathRef.current === rootDir) {
+      dragOverPathRef.current = null;
+      setDragOverPath(null);
+    }
+  }
+
   return (
     <div className="file-tree">
       <div
@@ -421,7 +503,7 @@ export default function FileTree({
       </div>
       {projectExpanded && (
         <div
-          className={"file-tree-body" + (rootDragOver ? " drag-over" : "")}
+          className={"file-tree-body" + (dragOverPath === rootDir ? " drag-over" : "")}
           onClick={handleEmptyAreaClick}
           onContextMenu={(e) => {
             if (e.target === e.currentTarget) {
@@ -430,23 +512,8 @@ export default function FileTree({
               openMenuAt(e.clientX, e.clientY);
             }
           }}
-          onDragOver={(e) => {
-            if (e.target !== e.currentTarget) return;
-            e.preventDefault();
-            e.dataTransfer.dropEffect = "move";
-            setRootDragOver(true);
-          }}
-          onDragLeave={(e) => {
-            if (e.target !== e.currentTarget) return;
-            setRootDragOver(false);
-          }}
-          onDrop={(e) => {
-            if (e.target !== e.currentTarget) return;
-            e.preventDefault();
-            setRootDragOver(false);
-            const source = e.dataTransfer.getData("text/plain");
-            if (source) moveEntry(source, rootDir);
-          }}
+          onMouseEnter={handleBodyMouseEnter}
+          onMouseLeave={handleBodyMouseLeave}
         >
           {error && <div className="tree-error">{error}</div>}
           {tree.map((entry) => (
@@ -455,10 +522,14 @@ export default function FileTree({
               entry={entry}
               activePath={activePath}
               selectedDir={selectedDir}
+              draggingPath={draggingPath}
+              dragOverPath={dragOverPath}
               onOpenFile={onOpenFile}
               onSelectDir={setSelectedDir}
               onContextMenu={handleRowContextMenu}
-              onMoveEntry={moveEntry}
+              onRowMouseDown={handleRowMouseDown}
+              onRowMouseEnter={handleRowMouseEnter}
+              onRowMouseLeave={handleRowMouseLeave}
               onRename={(e) => renameTarget(e.path, e.name)}
               depth={0}
             />

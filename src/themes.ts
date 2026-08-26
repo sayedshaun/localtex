@@ -4,7 +4,7 @@ import { dracula } from "@uiw/codemirror-theme-dracula";
 import { vscodeDark } from "@uiw/codemirror-theme-vscode";
 import type { Extension } from "@codemirror/state";
 
-export type ThemeId = "vscode-dark" | "dracula" | "gnome";
+export type ThemeId = "vscode-dark" | "dracula" | "gnome" | "light";
 
 export type ThemeDef = {
   id: ThemeId;
@@ -46,6 +46,40 @@ const gnomeEditorTheme = createTheme({
     lineHighlight: "rgba(255, 255, 255, 0.06)",
   },
   styles: gnomeStyle,
+});
+
+const lightStyle = [
+  { tag: t.comment, color: "#6a737d" },
+  { tag: t.string, color: "#0a7d31" },
+  { tag: t.atom, color: "#9251c9" },
+  { tag: t.meta, color: "#24292e" },
+  { tag: [t.keyword, t.operator, t.tagName], color: "#d73a49" },
+  { tag: [t.function(t.propertyName), t.propertyName], color: "#005cc5" },
+  {
+    tag: [
+      t.definition(t.variableName),
+      t.function(t.variableName),
+      t.className,
+      t.attributeName,
+    ],
+    color: "#b08800",
+  },
+];
+
+const lightEditorTheme = createTheme({
+  theme: "light",
+  settings: {
+    background: "#ffffff",
+    foreground: "#24292e",
+    caret: "#24292e",
+    selection: "rgba(3, 102, 214, 0.2)",
+    selectionMatch: "rgba(3, 102, 214, 0.12)",
+    gutterBackground: "#ffffff",
+    gutterForeground: "#8b949e",
+    gutterBorder: "transparent",
+    lineHighlight: "rgba(0, 0, 0, 0.04)",
+  },
+  styles: lightStyle,
 });
 
 export const THEMES: Record<ThemeId, ThemeDef> = {
@@ -110,6 +144,27 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
       "--text-sidebar": "#eeeeec",
       "--accent": "#3584e4",
       "--accent-hover": "#4a97eb",
+    },
+  },
+  light: {
+    id: "light",
+    label: "Light",
+    editorTheme: lightEditorTheme,
+    terminal: { background: "#ffffff", foreground: "#24292e", cursor: "#24292e" },
+    vars: {
+      "--bg-app": "#ffffff",
+      "--bg-panel": "#f6f8fa",
+      "--bg-elevated": "#eaeef2",
+      "--bg-hover": "#e1e6eb",
+      "--bg-sidebar": "#f6f8fa",
+      "--bg-sidebar-elevated": "#eaeef2",
+      "--border-color": "#d0d7de",
+      "--border-color-soft": "#d8dee4",
+      "--text-primary": "#24292e",
+      "--text-secondary": "#57606a",
+      "--text-sidebar": "#24292e",
+      "--accent": "#0969da",
+      "--accent-hover": "#0860ca",
     },
   },
 };

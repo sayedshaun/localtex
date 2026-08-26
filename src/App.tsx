@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Editor, { EditorHandle } from "./components/Editor";
 import Terminal from "./components/Terminal";
 import PdfPreview, { PdfPreviewHandle } from "./components/PdfPreview";
 import FileTree from "./components/FileTree";
 import OutlinePanel from "./components/OutlinePanel";
+import SearchPanel from "./components/SearchPanel";
 import SymbolToolbar from "./components/SymbolToolbar";
 import SplitPane from "./components/SplitPane";
 import MenuBar, { Menu } from "./components/MenuBar";
@@ -86,6 +87,54 @@ const INSERT_SNIPPETS: { label: string; text: string }[] = [
   { label: "Equation", text: "\\begin{equation}\n  \n\\end{equation}" },
 ];
 
+function FilesRailIcon() {
+  return (
+    <svg viewBox="0 0 20 20" width="19" height="19">
+      <path
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.3"
+        strokeLinejoin="round"
+        d="M3 5.5A1.5 1.5 0 0 1 4.5 4h3.4l1.6 1.8h6A1.5 1.5 0 0 1 17 7.3v7.2A1.5 1.5 0 0 1 15.5 16h-11A1.5 1.5 0 0 1 3 14.5z"
+      />
+    </svg>
+  );
+}
+
+function SearchRailIcon() {
+  return (
+    <svg viewBox="0 0 20 20" width="19" height="19">
+      <circle cx="8.6" cy="8.6" r="5.1" fill="none" stroke="currentColor" strokeWidth="1.3" />
+      <path stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" d="M12.6 12.6 17 17" />
+    </svg>
+  );
+}
+
+function GitRailIcon() {
+  return (
+    <svg viewBox="0 0 20 20" width="19" height="19">
+      <circle cx="6" cy="5" r="1.8" fill="none" stroke="currentColor" strokeWidth="1.3" />
+      <circle cx="6" cy="15" r="1.8" fill="none" stroke="currentColor" strokeWidth="1.3" />
+      <circle cx="14" cy="10" r="1.8" fill="none" stroke="currentColor" strokeWidth="1.3" />
+      <path fill="none" stroke="currentColor" strokeWidth="1.3" d="M6 6.8v6.4M7.6 5.8 12.4 9" />
+    </svg>
+  );
+}
+
+function GearRailIcon() {
+  return (
+    <svg viewBox="0 0 20 20" width="19" height="19">
+      <circle cx="10" cy="10" r="2.6" fill="none" stroke="currentColor" strokeWidth="1.3" />
+      <path
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.3"
+        d="M10 3.2v1.9M10 14.9v1.9M16.8 10h-1.9M5.1 10H3.2M14.8 5.2l-1.3 1.3M6.5 13.5l-1.3 1.3M14.8 14.8l-1.3-1.3M6.5 6.5 5.2 5.2"
+      />
+    </svg>
+  );
+}
+
 export default function App() {
   const [view, setView] = useState<"home" | "editor">("home");
   const [projectDir, setProjectDir] = useState<string | null>(null);
@@ -99,10 +148,14 @@ export default function App() {
   const [compiling, setCompiling] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [sidebarVisible, setSidebarVisible] = useState(true);
+  const [sidebarMode, setSidebarMode] = useState<"files" | "search">("files");
+  const [sidebarWidth, setSidebarWidth] = useState(240);
+  const [pdfPaneVisible, setPdfPaneVisible] = useState(true);
   const [terminalVisible, setTerminalVisible] = useState(true);
   const [terminalDock, setTerminalDock] = useState<"bottom" | "right">("bottom");
   const [promptState, setPromptState] = useState<PromptState | null>(null);
   const [themeId, setThemeId] = useState<ThemeId>(loadStoredTheme);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const theme = THEMES[themeId];
 
   useEffect(() => {
@@ -118,12 +171,6 @@ export default function App() {
   }, [themeId, theme]);
   const [viewMode, setViewMode] = useState<ViewMode>("text");
   const [imageData, setImageData] = useState<string | null>(null);
-
-  const wordCount = useMemo(() => {
-    const trimmed = content.trim();
-    const words = trimmed ? trimmed.split(/\s+/).length : 0;
-    return { words, chars: content.length };
-  }, [content]);
 
   function promptForName(request: PromptRequest): Promise<string | null> {
     return new Promise((resolve) => {
@@ -276,6 +323,17 @@ export default function App() {
     await openFile(path);
   }
 
+  async function handleOpenSearchMatch(path: string, line: number) {
+    if (path !== texPath) {
+      await openFile(path);
+      // Let CodeMirror pick up the new `value` prop before we scroll it.
+      await new Promise((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(resolve)),
+      );
+    }
+    editorRef.current?.goToLine(line);
+  }
+
   async function handleExportProject() {
     if (!projectDir) return;
     try {
@@ -321,9 +379,31 @@ export default function App() {
     if (target.path !== texPath) {
       await openFile(target.path);
       // Let CodeMirror pick up the new `value` prop before we scroll it.
-      await new Promise((resolve) => requestAnimationFrame(resolve));
+      await new Promise((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(resolve)),
+      );
     }
     editorRef.current?.goToLine(target.line);
+  }
+
+  function startSidebarResize(e: React.MouseEvent) {
+    const startX = e.clientX;
+    const startWidth = sidebarWidth;
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+
+    const onMouseMove = (ev: MouseEvent) => {
+      const next = Math.min(Math.max(startWidth + (ev.clientX - startX), 160), 480);
+      setSidebarWidth(next);
+    };
+    const onMouseUp = () => {
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+    };
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
   }
 
   async function handleCompile() {
@@ -398,31 +478,72 @@ export default function App() {
 
   return (
     <div className="app">
-      <div className="toolbar">
-        <button className="logo-btn" onClick={goHome} title="Home">
-          <img className="logo-icon" src={logoIcon} alt="LocalTeX" width="26" height="26" />
+      <div className="activity-bar">
+        <button className="activity-bar-logo" onClick={goHome} title="Home">
+          <img className="logo-icon" src={logoIcon} alt="LocalTeX" width="24" height="24" />
         </button>
+        {view === "editor" && (
+          <div className="activity-bar-icons">
+            <button
+              className={
+                "activity-bar-btn" +
+                (sidebarVisible && sidebarMode === "files" ? " active" : "")
+              }
+              onClick={() => {
+                if (sidebarVisible && sidebarMode === "files") {
+                  setSidebarVisible(false);
+                } else {
+                  setSidebarMode("files");
+                  setSidebarVisible(true);
+                }
+              }}
+              title="Files"
+            >
+              <FilesRailIcon />
+            </button>
+            <button
+              className={
+                "activity-bar-btn" +
+                (sidebarVisible && sidebarMode === "search" ? " active" : "")
+              }
+              onClick={() => {
+                if (sidebarVisible && sidebarMode === "search") {
+                  setSidebarVisible(false);
+                } else {
+                  setSidebarMode("search");
+                  setSidebarVisible(true);
+                }
+              }}
+              title="Search"
+            >
+              <SearchRailIcon />
+            </button>
+            <button
+              className={"activity-bar-btn" + (terminalVisible ? " active" : "")}
+              onClick={() => setTerminalVisible((v) => !v)}
+              title="Source control (terminal)"
+            >
+              <GitRailIcon />
+            </button>
+          </div>
+        )}
+        <button
+          className="activity-bar-btn activity-bar-btn-bottom"
+          onClick={() => setSettingsOpen(true)}
+          title="Settings"
+        >
+          <GearRailIcon />
+        </button>
+      </div>
+      <div className="app-body">
+      <div className="toolbar">
         {view === "editor" && (
           <>
             <MenuBar menus={menus} />
-            <span className="path">
-              {texPath}
+            <span className="filename">
+              {texPath?.split("/").pop()}
               {dirty ? " *" : ""}
             </span>
-            {texPath?.endsWith(".tex") && (
-              <span className="word-count">
-                {wordCount.words} words, {wordCount.chars} characters
-              </span>
-            )}
-            {texPath?.endsWith(".tex") && pdfPath && (
-              <button
-                className="sync-pdf-btn"
-                onClick={handleSyncToPdf}
-                title="Jump the PDF preview to the cursor's position"
-              >
-                ⇅ Sync to PDF
-              </button>
-            )}
             {log && (
               <button
                 className="log-toggle-btn"
@@ -438,21 +559,49 @@ export default function App() {
         <Home onOpenProject={openProject} promptForName={promptForName} />
       ) : (
       <div className="main">
-        {sidebarVisible && projectDir && (
-          <div className="sidebar">
-            <FileTree
-              rootDir={projectDir}
-              activePath={texPath}
-              onOpenFile={handleOpenFromTree}
-              onFileRemoved={handleFileRemoved}
-              refreshToken={treeRefreshToken}
-              promptForName={promptForName}
+        {projectDir && sidebarVisible && (
+          <>
+            <div className="sidebar" style={{ width: sidebarWidth }}>
+              {sidebarMode === "files" ? (
+                <>
+                  <FileTree
+                    rootDir={projectDir}
+                    activePath={texPath}
+                    onOpenFile={handleOpenFromTree}
+                    onFileRemoved={handleFileRemoved}
+                    refreshToken={treeRefreshToken}
+                    promptForName={promptForName}
+                  />
+                  <OutlinePanel
+                    content={content}
+                    onGoToLine={(line) => editorRef.current?.goToLine(line)}
+                  />
+                </>
+              ) : (
+                <SearchPanel rootDir={projectDir} onOpenMatch={handleOpenSearchMatch} />
+              )}
+              <button
+                className="sidebar-fold-btn"
+                onClick={() => setSidebarVisible(false)}
+                title="Collapse sidebar"
+              >
+                ‹
+              </button>
+            </div>
+            <div
+              className="sidebar-resize-handle"
+              onMouseDown={startSidebarResize}
             />
-            <OutlinePanel
-              content={content}
-              onGoToLine={(line) => editorRef.current?.goToLine(line)}
-            />
-          </div>
+          </>
+        )}
+        {projectDir && !sidebarVisible && (
+          <button
+            className="sidebar-unfold-btn"
+            onClick={() => setSidebarVisible(true)}
+            title="Expand sidebar"
+          >
+            ›
+          </button>
         )}
         <div className="editor-preview-area">
           {(() => {
@@ -484,28 +633,59 @@ export default function App() {
                   No preview available for this file type.
                 </div>
               ) : (
-                <SplitPane
-                  initialLeftPct={55}
-                  left={
+                (() => {
+                  const editorPaneEl = (
                     <div className="editor-pane">
                       <SymbolToolbar
                         onInsert={(text) => editorRef.current?.insertAtCursor(text)}
                       />
                       <Editor ref={editorRef} value={content} onChange={handleChange} theme={theme.editorTheme} />
                     </div>
+                  );
+
+                  if (!pdfPaneVisible) {
+                    return (
+                      <div className="editor-with-pdf-unfold">
+                        {editorPaneEl}
+                        <button
+                          className="pdf-unfold-btn"
+                          onClick={() => setPdfPaneVisible(true)}
+                          title="Show PDF preview"
+                        >
+                          ‹
+                        </button>
+                      </div>
+                    );
                   }
-                  right={
-                    <PdfPreview
-                      ref={pdfRef}
-                      pdfPath={pdfPath}
-                      reloadToken={reloadToken}
-                      onCompile={handleCompile}
-                      compiling={compiling}
-                      canCompile={!!texPath}
-                      onSyncClick={handleSyncFromPdf}
+
+                  return (
+                    <SplitPane
+                      initialLeftPct={55}
+                      left={editorPaneEl}
+                      right={
+                        <div className="pdf-pane-wrap">
+                          <PdfPreview
+                            ref={pdfRef}
+                            pdfPath={pdfPath}
+                            reloadToken={reloadToken}
+                            onCompile={handleCompile}
+                            compiling={compiling}
+                            canCompile={!!texPath}
+                            onSyncClick={handleSyncFromPdf}
+                            onSyncToPdf={handleSyncToPdf}
+                          />
+                          <button
+                            className="pdf-fold-btn"
+                            onClick={() => setPdfPaneVisible(false)}
+                            title="Hide PDF preview"
+                          >
+                            ›
+                          </button>
+                        </div>
+                      }
                     />
-                  }
-                />
+                  );
+                })()
               );
 
             if (!projectDir || !terminalVisible) return viewerContent;
@@ -559,36 +739,63 @@ export default function App() {
             if (viewMode === "text") {
               // Bottom dock only splits the editor column, so the PDF
               // preview keeps its full height instead of being squeezed.
+              const editorWithTerminal = (
+                <SplitPane
+                  orientation="vertical"
+                  initialLeftPct={70}
+                  minPct={30}
+                  maxPct={85}
+                  left={
+                    <div className="editor-pane">
+                      <SymbolToolbar
+                        onInsert={(text) => editorRef.current?.insertAtCursor(text)}
+                      />
+                      <Editor ref={editorRef} value={content} onChange={handleChange} theme={theme.editorTheme} />
+                    </div>
+                  }
+                  right={terminalPanel}
+                />
+              );
+
+              if (!pdfPaneVisible) {
+                return (
+                  <div className="editor-with-pdf-unfold">
+                    {editorWithTerminal}
+                    <button
+                      className="pdf-unfold-btn"
+                      onClick={() => setPdfPaneVisible(true)}
+                      title="Show PDF preview"
+                    >
+                      ‹
+                    </button>
+                  </div>
+                );
+              }
+
               return (
                 <SplitPane
                   initialLeftPct={55}
-                  left={
-                    <SplitPane
-                      orientation="vertical"
-                      initialLeftPct={70}
-                      minPct={30}
-                      maxPct={85}
-                      left={
-                        <div className="editor-pane">
-                          <SymbolToolbar
-                            onInsert={(text) => editorRef.current?.insertAtCursor(text)}
-                          />
-                          <Editor ref={editorRef} value={content} onChange={handleChange} theme={theme.editorTheme} />
-                        </div>
-                      }
-                      right={terminalPanel}
-                    />
-                  }
+                  left={editorWithTerminal}
                   right={
-                    <PdfPreview
-                      ref={pdfRef}
-                      pdfPath={pdfPath}
-                      reloadToken={reloadToken}
-                      onCompile={handleCompile}
-                      compiling={compiling}
-                      canCompile={!!texPath}
-                      onSyncClick={handleSyncFromPdf}
-                    />
+                    <div className="pdf-pane-wrap">
+                      <PdfPreview
+                        ref={pdfRef}
+                        pdfPath={pdfPath}
+                        reloadToken={reloadToken}
+                        onCompile={handleCompile}
+                        compiling={compiling}
+                        canCompile={!!texPath}
+                        onSyncClick={handleSyncFromPdf}
+                        onSyncToPdf={handleSyncToPdf}
+                      />
+                      <button
+                        className="pdf-fold-btn"
+                        onClick={() => setPdfPaneVisible(false)}
+                        title="Hide PDF preview"
+                      >
+                        ›
+                      </button>
+                    </div>
                   }
                 />
               );
@@ -608,7 +815,33 @@ export default function App() {
         </div>
       </div>
       )}
+      </div>
       <PromptDialog state={promptState} />
+      {settingsOpen && (
+        <div className="modal-overlay" onMouseDown={() => setSettingsOpen(false)}>
+          <div className="modal-dialog settings-dialog" onMouseDown={(e) => e.stopPropagation()}>
+            <div className="modal-title">Settings</div>
+            <div className="settings-section-label">Theme</div>
+            <div className="settings-theme-list">
+              {THEME_LIST.map((t) => (
+                <button
+                  key={t.id}
+                  className={"settings-theme-btn" + (t.id === themeId ? " active" : "")}
+                  onClick={() => setThemeId(t.id)}
+                >
+                  {t.id === themeId ? "✓ " : ""}
+                  {t.label}
+                </button>
+              ))}
+            </div>
+            <div className="modal-actions">
+              <button className="modal-btn modal-btn-primary" onClick={() => setSettingsOpen(false)}>
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

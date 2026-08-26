@@ -18,10 +18,16 @@ export type ProjectSummary = {
   modifiedMs: number;
 };
 
+export type SearchMatch = {
+  path: string;
+  line: number;
+  text: string;
+};
+
 export type ElectronApi = {
   ensureProjectsRoot: () => Promise<{ root: string }>;
   listProjects: () => Promise<ProjectSummary[]>;
-  createProject: (name: string) => Promise<ProjectSummary>;
+  createProject: (name: string, lang?: "en" | "multilingual") => Promise<ProjectSummary>;
   exportProject: (dir: string, projectName: string) => Promise<string | null>;
   chooseZipFile: () => Promise<string | null>;
   importProjectZip: (zipPath: string, name: string) => Promise<ProjectSummary>;
@@ -32,6 +38,7 @@ export type ElectronApi = {
   openFileDialog: () => Promise<string | null>;
 
   listProjectTree: (root: string) => Promise<FileEntry[]>;
+  searchProject: (root: string, query: string) => Promise<SearchMatch[]>;
   createFile: (path: string) => Promise<void>;
   createFolder: (path: string) => Promise<void>;
   renamePath: (from: string, to: string) => Promise<void>;

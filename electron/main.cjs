@@ -21,6 +21,43 @@ Hello, \\LaTeX{}!
 \\end{document}
 `;
 
+// A XeLaTeX + polyglossia starting point for mixing English with any
+// non-Latin-script language (Bengali, Arabic, Hindi, Russian, Greek, ...).
+// The main document stays in English/Latin Modern (so \\LaTeX{} etc. render
+// normally); \\otherlanguage / \\textbengali switch fonts only for the
+// passages that need the other script — setting \\setmainfont directly to a
+// script-specific font instead would break every Latin character elsewhere
+// in the document. (CJK scripts need xeCJK instead of polyglossia — not
+// covered by this template.) Requires the named font to be installed on the
+// system: tectonic's XeTeX-compatible engine loads fonts via fontconfig.
+const STARTER_TEX_MULTILINGUAL = `\\documentclass{article}
+\\usepackage{fontspec}
+\\usepackage{polyglossia}
+\\setmainlanguage{english}
+
+% Swap these two lines for your language + a font that covers its script,
+% e.g. \\setotherlanguage{arabic} \\newfontfamily\\arabicfont{Noto Naskh Arabic}
+%      \\setotherlanguage{hindi}  \\newfontfamily\\hindifont{Noto Sans Devanagari}
+%      \\setotherlanguage{russian}\\newfontfamily\\russianfont{Noto Sans}
+\\setotherlanguage{bengali}
+\\newfontfamily\\bengalifont{Noto Sans Bengali}
+
+\\title{New Document}
+\\author{}
+\\date{\\today}
+
+\\begin{document}
+\\maketitle
+
+\\begin{bengali}
+আপনার লেখা এখানে লিখুন। % Write your text here.
+\\end{bengali}
+
+Hello, \\LaTeX{} with \\textbengali{বাংলা}!
+
+\\end{document}
+`;
+
 function createWindow() {
   const win = new BrowserWindow({
     width: 1280,
@@ -119,7 +156,7 @@ ipcMain.handle("list-projects", () => {
     .sort((a, b) => b.modifiedMs - a.modifiedMs);
 });
 
-ipcMain.handle("create-project", (_e, name) => {
+ipcMain.handle("create-project", (_e, name, lang) => {
   const root = projectsRootDir();
   const dir = path.join(root, name);
   if (fs.existsSync(dir)) {
@@ -127,7 +164,7 @@ ipcMain.handle("create-project", (_e, name) => {
   }
   fs.mkdirSync(dir, { recursive: true });
   const texPath = path.join(dir, "main.tex");
-  fs.writeFileSync(texPath, STARTER_TEX);
+  fs.writeFileSync(texPath, lang === "multilingual" ? STARTER_TEX_MULTILINGUAL : STARTER_TEX);
   return { name, dir, texPath, modifiedMs: fs.statSync(dir).mtimeMs };
 });
 
@@ -236,6 +273,57 @@ function readDirEntry(dirPath) {
 
 ipcMain.handle("list-project-tree", (_e, root) => readDirEntry(root));
 
+// ---- project-wide search ----
+
+const SEARCH_SKIP_EXTENSIONS = new Set([
+  "gz", "zip", "bin", "otf", "ttf", "woff", "woff2", "ico", "mp3", "mp4",
+  "class", "o", "exe", "dll", "pyc", "pdf", "png", "jpg", "jpeg", "gif",
+  "bmp", "webp",
+]);
+
+function walkFiles(dir, out) {
+  for (const name of fs.readdirSync(dir)) {
+    if (name.startsWith(".")) continue;
+    const full = path.join(dir, name);
+    if (fs.statSync(full).isDirectory()) {
+      walkFiles(full, out);
+    } else {
+      out.push(full);
+    }
+  }
+}
+
+ipcMain.handle("search-project", (_e, root, query) => {
+  const q = (query ?? "").trim().toLowerCase();
+  if (!q) return [];
+
+  const files = [];
+  walkFiles(root, files);
+
+  const MAX_MATCHES = 200;
+  const matches = [];
+  for (const filePath of files) {
+    if (matches.length >= MAX_MATCHES) break;
+    const ext = path.extname(filePath).slice(1).toLowerCase();
+    if (SEARCH_SKIP_EXTENSIONS.has(ext)) continue;
+
+    let content;
+    try {
+      content = fs.readFileSync(filePath, "utf-8");
+    } catch {
+      continue;
+    }
+
+    const lines = content.split("\n");
+    for (let i = 0; i < lines.length && matches.length < MAX_MATCHES; i++) {
+      if (lines[i].toLowerCase().includes(q)) {
+        matches.push({ path: filePath, line: i + 1, text: lines[i].trim().slice(0, 200) });
+      }
+    }
+  }
+  return matches;
+});
+
 ipcMain.handle("create-file", (_e, filePath) => {
   if (fs.existsSync(filePath)) {
     throw new Error("a file with that name already exists");
@@ -271,7 +359,10 @@ ipcMain.handle("compile-tex", (_e, texPath) => {
       ["--keep-logs", "--synctex", "--outdir", dir, fileName],
       { cwd: dir },
       (error, stdout, stderr) => {
-        const log = `${stdout}${stderr}`;
+        // If tectonic never even started (e.g. not installed), stdout/stderr
+        // are empty and the only information is on the Error object itself —
+        // surface that instead of silently reporting an unexplained failure.
+        const log = stdout || stderr ? `${stdout}${stderr}` : (error?.message ?? "");
         const pdfPath = texPath.replace(/\.tex$/, ".pdf");
         const success = !error && fs.existsSync(pdfPath);
         resolve({

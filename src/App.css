@@ -1,3 +1,19 @@
+@font-face {
+  font-family: "Noto Sans Bengali";
+  src: url("./assets/fonts/NotoSansBengali-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Noto Sans Bengali";
+  src: url("./assets/fonts/NotoSansBengali-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   --bg-app: #1e1e1e;
   --bg-panel: #252526;
@@ -23,13 +39,130 @@ html, body, #root {
   height: 100%;
   background: var(--bg-app);
   color: var(--text-primary);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans Bengali", sans-serif;
 }
 
 .app {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   height: 100vh;
+}
+
+.activity-bar {
+  flex: 0 0 44px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 6px;
+  background: var(--bg-panel);
+  border-right: 1px solid var(--border-color);
+}
+
+.activity-bar-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+.activity-bar-logo:hover {
+  background: var(--bg-hover);
+}
+
+.activity-bar-icons {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-color-soft);
+}
+
+.activity-bar-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.activity-bar-btn:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.activity-bar-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.activity-bar-btn.active {
+  color: var(--accent);
+  background: var(--bg-hover);
+}
+
+.activity-bar-btn-bottom {
+  margin-top: auto;
+  margin-bottom: 8px;
+}
+
+.settings-dialog {
+  width: 280px;
+}
+
+.settings-section-label {
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.settings-theme-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 4px;
+}
+
+.settings-theme-btn {
+  text-align: left;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  padding: 7px 10px;
+  border-radius: 5px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.settings-theme-btn:hover {
+  background: var(--bg-hover);
+}
+
+.settings-theme-btn.active {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.app-body {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
 }
 
 .menu-bar {
@@ -102,22 +235,6 @@ html, body, #root {
   border-bottom: 1px solid var(--border-color);
 }
 
-.logo-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  padding: 2px 4px;
-  margin-right: 8px;
-  border-radius: 4px;
-}
-
-.logo-btn:hover {
-  background: var(--bg-hover);
-}
-
 .logo-icon {
   flex: 0 0 auto;
   display: block;
@@ -141,19 +258,12 @@ html, body, #root {
   cursor: default;
 }
 
-.toolbar .path {
+.toolbar .filename {
   margin-left: auto;
   color: var(--text-secondary);
   font-size: 12px;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.word-count {
-  flex: 0 0 auto;
-  color: var(--text-secondary);
-  font-size: 11px;
   white-space: nowrap;
 }
 
@@ -281,6 +391,13 @@ html, body, #root {
   min-height: 0;
 }
 
+/* The editor's base font is monospace-only and has no Bengali glyphs; the
+   bundled Noto Sans Bengali fills the gap so Bangla text always renders
+   correctly regardless of what's installed on the host system. */
+.code-editor .cm-content {
+  font-family: "Noto Sans Bengali", monospace;
+}
+
 .split-pane-right {
   background: var(--bg-elevated);
 }
@@ -306,11 +423,141 @@ html, body, #root {
 }
 
 .sidebar {
-  flex: 0 0 240px;
+  position: relative;
+  flex: 0 0 auto;
   display: flex;
   flex-direction: column;
   min-height: 0;
   border-right: 1px solid var(--border-color);
+}
+
+.sidebar-resize-handle {
+  flex: 0 0 4px;
+  cursor: col-resize;
+  background: transparent;
+}
+
+.sidebar-resize-handle:hover {
+  background: var(--accent);
+}
+
+.sidebar-fold-btn {
+  position: absolute;
+  top: 50%;
+  right: -1px;
+  transform: translateY(-50%);
+  width: 14px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-color-soft);
+  border-radius: 0 4px 4px 0;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 12px;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.sidebar:hover .sidebar-fold-btn {
+  opacity: 1;
+}
+
+.sidebar-fold-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.sidebar-unfold-btn {
+  flex: 0 0 auto;
+  width: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-sidebar);
+  border: none;
+  border-right: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.sidebar-unfold-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.editor-with-pdf-unfold {
+  display: flex;
+  height: 100%;
+  width: 100%;
+}
+
+.editor-with-pdf-unfold > *:first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.pdf-unfold-btn {
+  flex: 0 0 auto;
+  width: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-panel);
+  border: none;
+  border-left: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.pdf-unfold-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.pdf-pane-wrap {
+  position: relative;
+  height: 100%;
+  width: 100%;
+}
+
+.pdf-pane-wrap > .pdf-viewer {
+  height: 100%;
+  width: 100%;
+}
+
+.pdf-fold-btn {
+  position: absolute;
+  top: 50%;
+  left: -1px;
+  transform: translateY(-50%);
+  width: 14px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-color-soft);
+  border-radius: 4px 0 0 4px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 12px;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+  z-index: 1;
+}
+
+.pdf-pane-wrap:hover .pdf-fold-btn {
+  opacity: 1;
+}
+
+.pdf-fold-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
 }
 
 .file-tree {
@@ -320,7 +567,7 @@ html, body, #root {
   background: var(--bg-sidebar);
   min-height: 0;
   overflow: hidden;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans Bengali", sans-serif;
 }
 
 .outline-panel {
@@ -330,8 +577,103 @@ html, body, #root {
   flex-direction: column;
   background: var(--bg-sidebar-elevated);
   border-top: 1px solid var(--border-color-soft);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans Bengali", sans-serif;
   min-height: 0;
+}
+
+.search-panel {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--bg-sidebar);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans Bengali", sans-serif;
+}
+
+.search-panel-header {
+  flex: 0 0 auto;
+  padding: 10px 10px 6px;
+}
+
+.search-panel-input {
+  width: 100%;
+  background: var(--bg-sidebar-elevated);
+  color: var(--text-sidebar);
+  border: 1px solid var(--border-color-soft);
+  border-radius: 5px;
+  padding: 6px 10px;
+  font-size: 12.5px;
+  outline: none;
+}
+
+.search-panel-input:focus {
+  border-color: var(--accent);
+}
+
+.search-panel-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 4px 6px 10px;
+}
+
+.search-panel-empty {
+  padding: 10px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.search-panel-group {
+  margin-bottom: 8px;
+}
+
+.search-panel-file {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-sidebar);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.search-panel-count {
+  flex: 0 0 auto;
+  color: var(--text-secondary);
+  font-weight: 400;
+  font-size: 11px;
+}
+
+.search-panel-match {
+  padding: 3px 8px 3px 18px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: 4px;
+  display: flex;
+  gap: 8px;
+  overflow: hidden;
+}
+
+.search-panel-match:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.search-panel-line {
+  flex: 0 0 auto;
+  opacity: 0.6;
+  min-width: 16px;
+  text-align: right;
+}
+
+.search-panel-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: "Menlo", "Consolas", monospace;
 }
 
 .outline-header {
@@ -483,6 +825,10 @@ html, body, #root {
   background: rgba(77, 155, 255, 0.18);
   outline: 1px solid #4d9bff;
   outline-offset: -1px;
+}
+
+.tree-row.dragging {
+  opacity: 0.45;
 }
 
 .tree-caret {
@@ -823,7 +1169,6 @@ html, body, #root {
 
 .pdf-page {
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
-  max-width: 100%;
 }
 
 .pdf-page-flash {
@@ -899,6 +1244,7 @@ html, body, #root {
   border-top: 1px solid var(--border-color);
 }
 
+
 .home {
   flex: 1 1 auto;
   min-height: 0;
@@ -907,24 +1253,39 @@ html, body, #root {
 }
 
 .home-sidebar {
-  flex: 0 0 220px;
+  flex: 0 0 230px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  padding: 24px 16px;
+  gap: 10px;
+  padding: 20px 14px;
   background: var(--bg-sidebar);
   border-right: 1px solid var(--border-color);
+}
+
+.home-new-btn,
+.home-import-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border-radius: 6px;
+  padding: 9px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s ease, transform 0.06s ease;
+}
+
+.home-new-btn:active,
+.home-import-btn:active {
+  transform: scale(0.98);
 }
 
 .home-new-btn {
   background: var(--accent);
   color: #fff;
   border: none;
-  border-radius: 5px;
-  padding: 9px 16px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 .home-new-btn:hover {
@@ -935,24 +1296,28 @@ html, body, #root {
   background: transparent;
   color: var(--text-sidebar);
   border: 1px solid var(--border-color-soft);
-  border-radius: 5px;
-  padding: 8px 12px;
-  font-size: 12px;
-  cursor: pointer;
+  font-weight: 500;
 }
 
 .home-import-btn:hover {
   background: var(--bg-hover);
   color: var(--text-primary);
+  border-color: var(--text-secondary);
 }
 
 .home-nav {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  margin-top: 10px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-color-soft);
 }
 
 .home-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
   padding: 7px 10px;
   border-radius: 5px;
   font-size: 13px;
@@ -969,39 +1334,103 @@ html, body, #root {
   flex: 1 1 auto;
   min-width: 0;
   overflow-y: auto;
-  padding: 28px 40px;
+  padding: 32px 44px;
 }
 
 .home-toolbar {
-  max-width: 900px;
-  margin: 0 auto 20px;
+  max-width: 920px;
+  margin: 0 auto 22px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.home-search-wrap {
+  position: relative;
+  flex: 0 1 340px;
+}
+
+.home-search-icon {
+  position: absolute;
+  left: 11px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-secondary);
+  display: flex;
+  pointer-events: none;
 }
 
 .home-search {
   width: 100%;
-  max-width: 320px;
   background: var(--bg-panel);
   color: var(--text-primary);
   border: 1px solid var(--border-color-soft);
-  border-radius: 5px;
-  padding: 8px 12px;
+  border-radius: 6px;
+  padding: 8px 12px 8px 32px;
   font-size: 13px;
   outline: none;
+  transition: border-color 0.12s ease;
 }
 
 .home-search:focus {
   border-color: var(--accent);
 }
 
+.home-count {
+  flex: 0 0 auto;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
 .home-empty {
-  max-width: 900px;
-  margin: 40px auto;
+  max-width: 920px;
+  margin: 60px auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
   text-align: center;
   color: var(--text-secondary);
 }
 
+.home-empty-icon {
+  color: var(--text-secondary);
+  opacity: 0.6;
+  margin-bottom: 6px;
+}
+
+.home-empty-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.home-empty-subtitle {
+  font-size: 13px;
+}
+
+.home-empty-cta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 14px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 9px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.home-empty-cta:hover {
+  background: var(--accent-hover);
+}
+
 .home-table {
-  max-width: 900px;
+  max-width: 920px;
   margin: 0 auto;
   width: 100%;
   border-collapse: collapse;
@@ -1010,15 +1439,17 @@ html, body, #root {
 .home-table thead th {
   text-align: left;
   font-size: 11px;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   color: var(--text-secondary);
   font-weight: 600;
-  padding: 8px 12px;
+  padding: 0 12px 10px;
   border-bottom: 1px solid var(--border-color);
 }
 
 .home-row {
   cursor: pointer;
+  transition: background 0.1s ease;
 }
 
 .home-row:hover {
@@ -1026,7 +1457,7 @@ html, body, #root {
 }
 
 .home-row td {
-  padding: 12px;
+  padding: 10px 12px;
   font-size: 13px;
   color: var(--text-primary);
   border-bottom: 1px solid var(--border-color-soft);
@@ -1035,12 +1466,20 @@ html, body, #root {
 .home-row-title {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   font-weight: 500;
 }
 
 .home-row-icon {
-  font-size: 16px;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 7px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-hover));
+  color: #fff;
 }
 
 .home-row-modified {
@@ -1049,37 +1488,33 @@ html, body, #root {
 }
 
 .home-row-actions {
-  width: 64px;
+  width: 100px;
   text-align: right;
   white-space: nowrap;
 }
 
-.home-row-export,
-.home-row-delete {
+.home-row-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
   background: transparent;
   border: none;
   color: var(--text-secondary);
   cursor: pointer;
-  font-size: 14px;
-  line-height: 1;
-  padding: 3px 6px;
-  border-radius: 3px;
-  opacity: 0;
-  transition: opacity 0.1s ease;
+  border-radius: 5px;
+  transition: background 0.1s ease, color 0.1s ease;
 }
 
-.home-row-delete {
-  font-size: 16px;
-}
-
-.home-row:hover .home-row-export,
-.home-row:hover .home-row-delete {
-  opacity: 1;
+.home-row-pdf:hover {
+  background: var(--bg-hover);
+  color: #e05252;
 }
 
 .home-row-export:hover {
   background: var(--bg-hover);
-  color: var(--text-primary);
+  color: var(--accent);
 }
 
 .home-row-delete:hover {

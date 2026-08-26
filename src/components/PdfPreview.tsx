@@ -38,10 +38,20 @@ const PdfPreview = forwardRef<
     compiling: boolean;
     canCompile: boolean;
     onSyncClick?: (page: number, xPt: number, yPt: number) => void;
+    onSyncToPdf?: () => void;
     standalone?: boolean;
   }
 >(function PdfPreview(
-  { pdfPath, reloadToken, onCompile, compiling, canCompile, onSyncClick, standalone },
+  {
+    pdfPath,
+    reloadToken,
+    onCompile,
+    compiling,
+    canCompile,
+    onSyncClick,
+    onSyncToPdf,
+    standalone,
+  },
   ref,
 ) {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -228,6 +238,15 @@ const PdfPreview = forwardRef<
           >
             {compiling && <span className="pdf-compile-spinner" />}
             {compiling ? "Compiling…" : "Compile"}
+          </button>
+        )}
+        {onSyncToPdf && hasDoc && (
+          <button
+            className="sync-pdf-btn"
+            onClick={onSyncToPdf}
+            title="Jump the PDF preview to the cursor's position"
+          >
+            ⇅ Sync to PDF
           </button>
         )}
         <div className="pdf-zoom-controls">

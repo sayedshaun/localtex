@@ -121,20 +121,6 @@ function GitRailIcon() {
   );
 }
 
-function GearRailIcon() {
-  return (
-    <svg viewBox="0 0 20 20" width="19" height="19">
-      <circle cx="10" cy="10" r="2.6" fill="none" stroke="currentColor" strokeWidth="1.3" />
-      <path
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.3"
-        d="M10 3.2v1.9M10 14.9v1.9M16.8 10h-1.9M5.1 10H3.2M14.8 5.2l-1.3 1.3M6.5 13.5l-1.3 1.3M14.8 14.8l-1.3-1.3M6.5 6.5 5.2 5.2"
-      />
-    </svg>
-  );
-}
-
 export default function App() {
   const [view, setView] = useState<"home" | "editor">("home");
   const [projectDir, setProjectDir] = useState<string | null>(null);
@@ -155,7 +141,6 @@ export default function App() {
   const [terminalDock, setTerminalDock] = useState<"bottom" | "right">("bottom");
   const [promptState, setPromptState] = useState<PromptState | null>(null);
   const [themeId, setThemeId] = useState<ThemeId>(loadStoredTheme);
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const theme = THEMES[themeId];
 
   useEffect(() => {
@@ -527,13 +512,6 @@ export default function App() {
             </button>
           </div>
         )}
-        <button
-          className="activity-bar-btn activity-bar-btn-bottom"
-          onClick={() => setSettingsOpen(true)}
-          title="Settings"
-        >
-          <GearRailIcon />
-        </button>
       </div>
       <div className="app-body">
       <div className="toolbar">
@@ -817,31 +795,6 @@ export default function App() {
       )}
       </div>
       <PromptDialog state={promptState} />
-      {settingsOpen && (
-        <div className="modal-overlay" onMouseDown={() => setSettingsOpen(false)}>
-          <div className="modal-dialog settings-dialog" onMouseDown={(e) => e.stopPropagation()}>
-            <div className="modal-title">Settings</div>
-            <div className="settings-section-label">Theme</div>
-            <div className="settings-theme-list">
-              {THEME_LIST.map((t) => (
-                <button
-                  key={t.id}
-                  className={"settings-theme-btn" + (t.id === themeId ? " active" : "")}
-                  onClick={() => setThemeId(t.id)}
-                >
-                  {t.id === themeId ? "✓ " : ""}
-                  {t.label}
-                </button>
-              ))}
-            </div>
-            <div className="modal-actions">
-              <button className="modal-btn modal-btn-primary" onClick={() => setSettingsOpen(false)}>
-                Done
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

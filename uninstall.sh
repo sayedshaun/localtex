@@ -8,7 +8,8 @@
 #
 set -euo pipefail
 
-WORKSPACE_DIR="$HOME/localtex-workspace"
+WORKSPACE_DIR="$HOME/LocalTeX-Projects"
+LEGACY_WORKSPACE_DIR="$HOME/localtex-workspace"
 TECTONIC_BIN="$HOME/.local/bin/tectonic"
 
 log() { printf '\033[1;36m==>\033[0m %s\n' "$1"; }
@@ -25,23 +26,31 @@ remove_package() {
     sudo apt-get remove -y localtex
 }
 
-remove_workspace() {
-    [ -d "$WORKSPACE_DIR" ] || return
+remove_dir_interactive() {
+    local dir="$1"
+    [ -d "$dir" ] || return
     if [ -t 0 ]; then
-        read -r -p "Delete your workspace at $WORKSPACE_DIR too? [y/N] " reply
+        read -r -p "Delete your projects at $dir too? [y/N] " reply
         case "$reply" in
             [yY]|[yY][eE][sS])
-                rm -rf "$WORKSPACE_DIR"
-                log "removed $WORKSPACE_DIR"
+                rm -rf "$dir"
+                log "removed $dir"
                 ;;
             *)
-                log "keeping $WORKSPACE_DIR"
+                log "keeping $dir"
                 ;;
         esac
     else
-        warn "not a terminal (e.g. running via curl | bash) — keeping $WORKSPACE_DIR"
-        warn "remove it yourself with: rm -rf $WORKSPACE_DIR"
+        warn "not a terminal (e.g. running via curl | bash) — keeping $dir"
+        warn "remove it yourself with: rm -rf $dir"
     fi
+}
+
+remove_workspace() {
+    # Current multi-project layout, plus the pre-migration single-workspace
+    # layout in case this install never ran the version that migrates it.
+    remove_dir_interactive "$WORKSPACE_DIR"
+    remove_dir_interactive "$LEGACY_WORKSPACE_DIR"
 }
 
 remove_tectonic() {

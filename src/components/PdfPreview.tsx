@@ -230,25 +230,27 @@ const PdfPreview = forwardRef<
   return (
     <div className="pdf-viewer">
       <div className="pdf-zoom-bar">
-        {!standalone && (
-          <button
-            className={"pdf-compile-btn" + (compiling ? " compiling" : "")}
-            onClick={onCompile}
-            disabled={compiling || !canCompile}
-          >
-            {compiling && <span className="pdf-compile-spinner" />}
-            {compiling ? "Compiling…" : "Compile"}
-          </button>
-        )}
-        {onSyncToPdf && hasDoc && (
-          <button
-            className="sync-pdf-btn"
-            onClick={onSyncToPdf}
-            title="Jump the PDF preview to the cursor's position"
-          >
-            ⇅ Sync to PDF
-          </button>
-        )}
+        <div className="pdf-zoom-bar-left">
+          {!standalone && (
+            <button
+              className={"pdf-compile-btn" + (compiling ? " compiling" : "")}
+              onClick={onCompile}
+              disabled={compiling || !canCompile}
+            >
+              {compiling && <span className="pdf-compile-spinner" />}
+              {compiling ? "Compiling…" : "Compile"}
+            </button>
+          )}
+          {onSyncToPdf && hasDoc && (
+            <button
+              className="sync-pdf-btn"
+              onClick={onSyncToPdf}
+              title="Jump the PDF preview to the cursor's position"
+            >
+              ⇅ Sync
+            </button>
+          )}
+        </div>
         <div className="pdf-zoom-controls">
           <button
             onClick={() => setZoom(zoomRef.current - 0.1)}

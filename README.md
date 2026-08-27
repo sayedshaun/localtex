@@ -17,6 +17,10 @@ cloud, no account, no multi-gigabyte TeX Live install.
 
 </div>
 
+<p align="center">
+  <img src="docs/screenshot.png" alt="LocalTeX — editor, outline, terminal, and live PDF preview in one window" width="900" />
+</p>
+
 ---
 
 ## Why LocalTeX?
@@ -31,12 +35,17 @@ your machine.
 
 | | |
 |---|---|
-| 📝 **Live editor** | CodeMirror 6 with LaTeX syntax highlighting, autosave, undo/redo, and find/replace. |
+| 🏠 **Multi-project dashboard** | An Overleaf-style home screen listing every project under `~/LocalTeX-Projects`, with search, new/delete, and .zip export/import (drop a project straight into Overleaf's "Upload Project", or pull one back out). |
+| 📝 **Live editor** | CodeMirror 6 with LaTeX syntax highlighting, autosave, undo/redo, find/replace, a symbol toolbar, and a document outline that jumps the cursor to any section. |
 | ⚙️ **Real compiler** | [Tectonic](https://tectonic-typesetting.github.io/) — a self-contained LaTeX engine, so there's no multi-gigabyte TeX Live install. Errors surface inline; the log only pops up when a compile actually fails. |
-| 💻 **Real terminal** | A genuine PTY-backed shell (`node-pty`), not a simulation. Run `git`, `claude`, or anything else right where you're editing — just like VS Code's integrated terminal. |
-| 📄 **PDF preview** | Rendered with `pdf.js`, scaled to fill the pane (Overleaf-style, never squished). Resizable split view, plus Ctrl+scroll / touchpad-pinch zoom. |
-| 🗂️ **File tree** | Overleaf-style sidebar — create, rename, and delete via right-click or empty-space click. |
-| 🧭 **Menu bar** | File / Edit / Insert / View, with only commands that actually do something — no dead menu items. |
+| 🔗 **SyncTeX** | Click "Sync" to jump the PDF to your cursor's position; double-click the PDF to jump the editor back — both directions, pixel-accurate. |
+| 💻 **Real terminal** | A genuine PTY-backed shell (`node-pty`), not a simulation. Dockable to the bottom or side, resizable, closable without killing the session. |
+| 📄 **PDF preview** | Rendered with `pdf.js` at supersampled resolution for crisp text. Foldable, resizable split view, plus Ctrl+scroll / touchpad-pinch zoom. |
+| 🔍 **Project-wide search** | A VS Code-style search panel — find text across every file in a project, not just the open one. |
+| 🗂️ **File tree** | Overleaf-style sidebar — create, rename, drag-and-drop move, and delete via right-click or empty-space click. Foldable and resizable. |
+| 🎨 **Themes** | VS Code Dark, Dracula, GNOME, and Light — covers the editor, terminal, and app chrome. |
+| 🌐 **Multilingual documents** | A bundled Bengali font plus a XeLaTeX + polyglossia starter template for mixing non-Latin scripts (Bengali, Arabic, Hindi, ...) with regular Latin text in the same document. |
+| 🧭 **Menu bar** | File / Edit / Insert / View / Theme, with only commands that actually do something — no dead menu items. |
 
 ## 🚀 Install
 
@@ -69,7 +78,7 @@ curl -fsSL https://raw.githubusercontent.com/sayedshaun/localtex/main/uninstall.
 ```
 
 Removes the `localtex` package. It'll ask before touching your
-`~/localtex-workspace` project files, and only removes the `tectonic`
+`~/LocalTeX-Projects` project files, and only removes the `tectonic`
 binary if `install.sh` was the one that put it there.
 
 ## 🛠️ Development
@@ -103,15 +112,21 @@ for building from source yourself.
 ```
 src/                     React frontend
   components/
-    Editor.tsx           CodeMirror-based LaTeX editor
+    Home.tsx              Multi-project dashboard (list, new, import/export, delete)
+    Editor.tsx            CodeMirror-based LaTeX editor
     Terminal.tsx          xterm.js wired to the PTY backend
-    PdfPreview.tsx        pdf.js-based PDF viewer with zoom
-    FileTree.tsx          Overleaf-style file browser + context menu
-    MenuBar.tsx           File/Edit/Insert/View menu bar
-    SplitPane.tsx          Draggable editor/preview divider
+    PdfPreview.tsx        pdf.js-based PDF viewer, zoom + SyncTeX
+    FileTree.tsx          Overleaf-style file browser (context menu, drag-and-drop)
+    SearchPanel.tsx        Project-wide text search
+    OutlinePanel.tsx       Document outline (jumps the cursor to a section)
+    SymbolToolbar.tsx      Bold/italic/math/list/etc. insert toolbar
+    MenuBar.tsx            File/Edit/Insert/View/Theme menu bar
+    PromptDialog.tsx       Modal text-input dialog (Electron has no window.prompt)
+    SplitPane.tsx          Draggable divider (editor/preview, and editor/terminal)
+  themes.ts                 Theme definitions (editor, terminal, and app-chrome colors)
   electron-api.d.ts       Type declarations for window.api (IPC bridge)
 electron/                Electron main process
-  main.cjs                Window creation + all IPC handlers (fs, compile, pty)
+  main.cjs                Window creation + all IPC handlers (fs, compile, pty, SyncTeX)
   preload.cjs              contextBridge exposing window.api to the renderer
 install.sh               One-command installer
 uninstall.sh             One-command uninstaller

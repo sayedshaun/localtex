@@ -112,50 +112,6 @@ html, body, #root {
   background: var(--bg-hover);
 }
 
-.activity-bar-btn-bottom {
-  margin-top: auto;
-  margin-bottom: 8px;
-}
-
-.settings-dialog {
-  width: 280px;
-}
-
-.settings-section-label {
-  font-size: 11px;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--text-secondary);
-  margin-bottom: 8px;
-}
-
-.settings-theme-list {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin-bottom: 4px;
-}
-
-.settings-theme-btn {
-  text-align: left;
-  background: transparent;
-  border: none;
-  color: var(--text-primary);
-  padding: 7px 10px;
-  border-radius: 5px;
-  font-size: 13px;
-  cursor: pointer;
-}
-
-.settings-theme-btn:hover {
-  background: var(--bg-hover);
-}
-
-.settings-theme-btn.active {
-  color: var(--accent);
-  font-weight: 600;
-}
-
 .app-body {
   flex: 1 1 auto;
   min-width: 0;
@@ -227,6 +183,7 @@ html, body, #root {
 }
 
 .toolbar {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -259,28 +216,36 @@ html, body, #root {
 }
 
 .toolbar .filename {
-  margin-left: auto;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  max-width: 40%;
   color: var(--text-secondary);
   font-size: 12px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  pointer-events: none;
 }
 
 .sync-pdf-btn {
   flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
   background: var(--bg-elevated);
   color: var(--text-primary);
   border: 1px solid var(--border-color-soft);
   border-radius: 4px;
-  padding: 3px 8px;
-  font-size: 11px;
+  height: 24px;
+  padding: 0 10px;
+  font-size: 12px;
+  line-height: 1;
   cursor: pointer;
 }
 
 .sync-pdf-btn:hover {
   background: var(--bg-hover);
-  color: #fff;
 }
 
 .log-toggle-btn {
@@ -1023,6 +988,12 @@ html, body, #root {
   padding: 6px 10px;
   background: var(--bg-panel);
   border-bottom: 1px solid var(--border-color);
+}
+
+.pdf-zoom-bar-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .pdf-zoom-controls {

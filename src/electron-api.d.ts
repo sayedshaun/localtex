@@ -24,6 +24,45 @@ export type SearchMatch = {
   text: string;
 };
 
+export type GitFileStatus = {
+  path: string;
+  origPath: string | null;
+  /** Porcelain index (staged) code: one of " MADRCU?!". */
+  index: string;
+  /** Porcelain worktree (unstaged) code: one of " MADRCU?!". */
+  worktree: string;
+};
+
+export type GitStatus = {
+  isRepo: boolean;
+  branch: string | null;
+  files: GitFileStatus[];
+  hasCommits: boolean;
+  /**
+   * Set when the project sits inside a *larger* repo whose root is elsewhere.
+   * Porcelain paths would be relative to that root, so the panel reports "not
+   * a repo" rather than acting on paths that don't resolve here.
+   */
+  nestedIn?: string | null;
+};
+
+export type GitBranch = {
+  name: string;
+  current: boolean;
+};
+
+export type GitStash = {
+  ref: string;
+  subject: string;
+};
+
+export type GitCommit = {
+  hash: string;
+  author: string;
+  when: string;
+  subject: string;
+};
+
 export type ElectronApi = {
   ensureProjectsRoot: () => Promise<{ root: string }>;
   listProjects: () => Promise<ProjectSummary[]>;
@@ -44,6 +83,29 @@ export type ElectronApi = {
   renamePath: (from: string, to: string) => Promise<void>;
   deletePath: (path: string) => Promise<void>;
   uploadFile: (dir: string) => Promise<void>;
+
+  /**
+   * Everyday operations only. Push/pull/clone are deliberately absent — they
+   * need credentials, which belong in the terminal where git can prompt.
+   */
+  gitStatus: (dir: string) => Promise<GitStatus>;
+  gitDiff: (dir: string, path: string, staged: boolean) => Promise<string>;
+  /** Contents at HEAD, or null when the file is new. Drives the change gutter. */
+  gitHeadFile: (dir: string, relPath: string) => Promise<string | null>;
+  gitHeadMessage: (dir: string) => Promise<string | null>;
+  gitInit: (dir: string) => Promise<void>;
+  gitStage: (dir: string, paths: string[]) => Promise<void>;
+  gitUnstage: (dir: string, paths: string[]) => Promise<void>;
+  gitDiscard: (dir: string, paths: string[]) => Promise<void>;
+  gitCommit: (dir: string, message: string, amend?: boolean) => Promise<void>;
+  gitBranches: (dir: string) => Promise<GitBranch[]>;
+  gitCheckoutBranch: (dir: string, branch: string) => Promise<void>;
+  gitCreateBranch: (dir: string, branch: string) => Promise<void>;
+  gitStashList: (dir: string) => Promise<GitStash[]>;
+  gitStashPush: (dir: string, message?: string) => Promise<void>;
+  gitStashApply: (dir: string, ref: string, drop: boolean) => Promise<void>;
+  gitStashDrop: (dir: string, ref: string) => Promise<void>;
+  gitLog: (dir: string, limit?: number) => Promise<GitCommit[]>;
 
   compileTex: (path: string) => Promise<CompileResult>;
   syncForward: (

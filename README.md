@@ -13,7 +13,7 @@ cloud, no account, no multi-gigabyte TeX Live install.
 [![Built with Electron](https://img.shields.io/badge/built%20with-Electron-47848F?logo=electron&logoColor=white)](https://electronjs.org)
 [![Platform: Linux](https://img.shields.io/badge/platform-Linux-orange?logo=linux&logoColor=white)](#install)
 
-[Install](#-install) · [Features](#-features) · [Development](#-development) · [Uninstall](#-uninstall)
+[Install](#-install) · [Features](#-features) · [Uninstall](#-uninstall) · [Contributing](CONTRIBUTING.md)
 
 </div>
 
@@ -51,6 +51,30 @@ your machine.
 
 > Debian/Ubuntu-based Linux (apt-based) only, for now.
 
+### Option A — prebuilt `.deb` (no Node/npm required)
+
+Grab the latest `.deb` from [Releases](https://github.com/sayedshaun/localtex/releases/latest)
+and install it:
+
+```bash
+curl -fsSLO https://github.com/sayedshaun/localtex/releases/latest/download/localtex.deb
+sudo apt install ./localtex.deb
+```
+
+You'll also need [Tectonic](https://tectonic-typesetting.github.io/en-US/install.html)
+on `PATH` to actually compile documents, if you don't have it already:
+
+```bash
+curl -fsSL https://drop-sh.fullyjustified.net | sh   # installs tectonic to ~/.local/bin
+```
+
+Every tagged release is built and attached automatically by
+[`.github/workflows/release.yml`](.github/workflows/release.yml) — the `.deb`
+you download there is the exact same artifact `install.sh` builds locally,
+just pre-built so you don't need Node.js on your machine at all.
+
+### Option B — build from source
+
 ```bash
 curl -fsSL https://raw.githubusercontent.com/sayedshaun/localtex/main/install.sh | bash
 ```
@@ -81,60 +105,11 @@ Removes the `localtex` package. It'll ask before touching your
 `~/LocalTeX-Projects` project files, and only removes the `tectonic`
 binary if `install.sh` was the one that put it there.
 
-## 🛠️ Development
-
-```bash
-npm install
-npm run electron:dev
-```
-
-> `npm install` downloads the Electron runtime itself on first run (a
-> prebuilt Chromium/Node binary, fetched from GitHub) — that's the tradeoff
-> for not depending on a system WebView, so make sure you're online.
-
-Build a release `.deb` yourself:
-
-```bash
-npm run electron:build
-```
-
-**Requirements:**
-
-- Node.js 18+
-- `build-essential` (Linux build deps)
-- [Tectonic](https://tectonic-typesetting.github.io/) on `PATH`
-
-`install.sh` sets all of this up automatically — you only need the above
-for building from source yourself.
-
-## 📁 Project layout
-
-```
-src/                     React frontend
-  components/
-    Home.tsx              Multi-project dashboard (list, new, import/export, delete)
-    Editor.tsx            CodeMirror-based LaTeX editor
-    Terminal.tsx          xterm.js wired to the PTY backend
-    PdfPreview.tsx        pdf.js-based PDF viewer, zoom + SyncTeX
-    FileTree.tsx          Overleaf-style file browser (context menu, drag-and-drop)
-    SearchPanel.tsx        Project-wide text search
-    OutlinePanel.tsx       Document outline (jumps the cursor to a section)
-    SymbolToolbar.tsx      Bold/italic/math/list/etc. insert toolbar
-    MenuBar.tsx            File/Edit/Insert/View/Theme menu bar
-    PromptDialog.tsx       Modal text-input dialog (Electron has no window.prompt)
-    SplitPane.tsx          Draggable divider (editor/preview, and editor/terminal)
-  themes.ts                 Theme definitions (editor, terminal, and app-chrome colors)
-  electron-api.d.ts       Type declarations for window.api (IPC bridge)
-electron/                Electron main process
-  main.cjs                Window creation + all IPC handlers (fs, compile, pty, SyncTeX)
-  preload.cjs              contextBridge exposing window.api to the renderer
-install.sh               One-command installer
-uninstall.sh             One-command uninstaller
-```
-
 ## 🤝 Contributing
 
-This is an open-source project — issues and pull requests are welcome.
+This is an open-source project — issues and pull requests are welcome. See
+[CONTRIBUTING.md](CONTRIBUTING.md) for the development setup, build
+instructions, and project layout.
 
 ## 📄 License
 

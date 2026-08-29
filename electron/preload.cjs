@@ -25,6 +25,30 @@ contextBridge.exposeInMainWorld("api", {
   deletePath: (path) => ipcRenderer.invoke("delete-path", path),
   uploadFile: (dir) => ipcRenderer.invoke("upload-file", dir),
 
+  // Everyday operations only. Anything needing credentials (push/pull/clone)
+  // stays in the terminal, where git can prompt interactively.
+  gitStatus: (dir) => ipcRenderer.invoke("git-status", dir),
+  gitDiff: (dir, path, staged) => ipcRenderer.invoke("git-diff", dir, path, staged),
+  gitHeadFile: (dir, relPath) => ipcRenderer.invoke("git-head-file", dir, relPath),
+  gitHeadMessage: (dir) => ipcRenderer.invoke("git-head-message", dir),
+  gitInit: (dir) => ipcRenderer.invoke("git-init", dir),
+  gitStage: (dir, paths) => ipcRenderer.invoke("git-stage", dir, paths),
+  gitUnstage: (dir, paths) => ipcRenderer.invoke("git-unstage", dir, paths),
+  gitDiscard: (dir, paths) => ipcRenderer.invoke("git-discard", dir, paths),
+  gitCommit: (dir, message, amend) =>
+    ipcRenderer.invoke("git-commit", dir, message, amend),
+  gitBranches: (dir) => ipcRenderer.invoke("git-branches", dir),
+  gitCheckoutBranch: (dir, branch) =>
+    ipcRenderer.invoke("git-checkout-branch", dir, branch),
+  gitCreateBranch: (dir, branch) =>
+    ipcRenderer.invoke("git-create-branch", dir, branch),
+  gitStashList: (dir) => ipcRenderer.invoke("git-stash-list", dir),
+  gitStashPush: (dir, message) => ipcRenderer.invoke("git-stash-push", dir, message),
+  gitStashApply: (dir, ref, drop) =>
+    ipcRenderer.invoke("git-stash-apply", dir, ref, drop),
+  gitStashDrop: (dir, ref) => ipcRenderer.invoke("git-stash-drop", dir, ref),
+  gitLog: (dir, limit) => ipcRenderer.invoke("git-log", dir, limit),
+
   compileTex: (path) => ipcRenderer.invoke("compile-tex", path),
   syncForward: (texPath, line) =>
     ipcRenderer.invoke("sync-forward", texPath, line),

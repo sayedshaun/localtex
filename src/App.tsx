@@ -5,6 +5,8 @@ import PdfPreview, { PdfPreviewHandle } from "./components/PdfPreview";
 import FileTree from "./components/FileTree";
 import OutlinePanel from "./components/OutlinePanel";
 import SearchPanel from "./components/SearchPanel";
+import GitPanel from "./components/GitPanel";
+import DiffView from "./components/DiffView";
 import SymbolToolbar from "./components/SymbolToolbar";
 import SplitPane from "./components/SplitPane";
 import MenuBar, { Menu } from "./components/MenuBar";
@@ -15,6 +17,25 @@ import logoIcon from "./assets/icon.png";
 import "./App.css";
 
 const THEME_STORAGE_KEY = "localtex-theme";
+const FONT_SIZE_STORAGE_KEY = "localtex-font-size";
+const FONT_SIZES = [12, 13, 14, 15, 16, 18, 20];
+const DEFAULT_FONT_SIZE = 14;
+
+// Common coding fonts. These aren't bundled — the CSP only allows local
+// assets — so each just names a family and falls back to the generic
+// monospace stack when it isn't installed on the host system.
+const FONT_FAMILY_STORAGE_KEY = "localtex-font-family";
+const FONT_FAMILIES = [
+  { id: "default", label: "Default", stack: '"Noto Sans Bengali", monospace' },
+  { id: "menlo", label: "Menlo", stack: 'Menlo, "Noto Sans Bengali", monospace' },
+  { id: "consolas", label: "Consolas", stack: 'Consolas, "Noto Sans Bengali", monospace' },
+  { id: "fira-code", label: "Fira Code", stack: '"Fira Code", "Noto Sans Bengali", monospace' },
+  { id: "jetbrains-mono", label: "JetBrains Mono", stack: '"JetBrains Mono", "Noto Sans Bengali", monospace' },
+  { id: "source-code-pro", label: "Source Code Pro", stack: '"Source Code Pro", "Noto Sans Bengali", monospace' },
+  { id: "cascadia-code", label: "Cascadia Code", stack: '"Cascadia Code", "Noto Sans Bengali", monospace' },
+  { id: "ubuntu-mono", label: "Ubuntu Mono", stack: '"Ubuntu Mono", "Noto Sans Bengali", monospace' },
+] as const;
+const DEFAULT_FONT_FAMILY = FONT_FAMILIES[0].id;
 
 function loadStoredTheme(): ThemeId {
   try {
@@ -24,6 +45,27 @@ function loadStoredTheme(): ThemeId {
     // localStorage unavailable — fall through to the default.
   }
   return "vscode-dark";
+}
+
+function loadStoredFontSize(): number {
+  try {
+    const stored = window.localStorage.getItem(FONT_SIZE_STORAGE_KEY);
+    const parsed = stored ? Number(stored) : NaN;
+    if (FONT_SIZES.includes(parsed)) return parsed;
+  } catch {
+    // localStorage unavailable — fall through to the default.
+  }
+  return DEFAULT_FONT_SIZE;
+}
+
+function loadStoredFontFamily(): string {
+  try {
+    const stored = window.localStorage.getItem(FONT_FAMILY_STORAGE_KEY);
+    if (stored && FONT_FAMILIES.some((f) => f.id === stored)) return stored;
+  } catch {
+    // localStorage unavailable — fall through to the default.
+  }
+  return DEFAULT_FONT_FAMILY;
 }
 
 function dirName(path: string): string {
@@ -87,40 +129,6 @@ const INSERT_SNIPPETS: { label: string; text: string }[] = [
   { label: "Equation", text: "\\begin{equation}\n  \n\\end{equation}" },
 ];
 
-function FilesRailIcon() {
-  return (
-    <svg viewBox="0 0 20 20" width="19" height="19">
-      <path
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.3"
-        strokeLinejoin="round"
-        d="M3 5.5A1.5 1.5 0 0 1 4.5 4h3.4l1.6 1.8h6A1.5 1.5 0 0 1 17 7.3v7.2A1.5 1.5 0 0 1 15.5 16h-11A1.5 1.5 0 0 1 3 14.5z"
-      />
-    </svg>
-  );
-}
-
-function SearchRailIcon() {
-  return (
-    <svg viewBox="0 0 20 20" width="19" height="19">
-      <circle cx="8.6" cy="8.6" r="5.1" fill="none" stroke="currentColor" strokeWidth="1.3" />
-      <path stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" d="M12.6 12.6 17 17" />
-    </svg>
-  );
-}
-
-function GitRailIcon() {
-  return (
-    <svg viewBox="0 0 20 20" width="19" height="19">
-      <circle cx="6" cy="5" r="1.8" fill="none" stroke="currentColor" strokeWidth="1.3" />
-      <circle cx="6" cy="15" r="1.8" fill="none" stroke="currentColor" strokeWidth="1.3" />
-      <circle cx="14" cy="10" r="1.8" fill="none" stroke="currentColor" strokeWidth="1.3" />
-      <path fill="none" stroke="currentColor" strokeWidth="1.3" d="M6 6.8v6.4M7.6 5.8 12.4 9" />
-    </svg>
-  );
-}
-
 export default function App() {
   const [view, setView] = useState<"home" | "editor">("home");
   const [projectDir, setProjectDir] = useState<string | null>(null);
@@ -134,7 +142,14 @@ export default function App() {
   const [compiling, setCompiling] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [sidebarVisible, setSidebarVisible] = useState(true);
-  const [sidebarMode, setSidebarMode] = useState<"files" | "search">("files");
+  const [sidebarMode, setSidebarMode] = useState<"files" | "search" | "git">("files");
+  const [gitRefreshToken, setGitRefreshToken] = useState(0);
+  const [gitBaseline, setGitBaseline] = useState<string | null>(null);
+  const [diffTarget, setDiffTarget] = useState<{
+    path: string;
+    diff: string;
+    staged: boolean;
+  } | null>(null);
   const [sidebarWidth, setSidebarWidth] = useState(240);
   const [pdfPaneVisible, setPdfPaneVisible] = useState(true);
   const [terminalVisible, setTerminalVisible] = useState(true);
@@ -142,6 +157,8 @@ export default function App() {
   const [promptState, setPromptState] = useState<PromptState | null>(null);
   const [themeId, setThemeId] = useState<ThemeId>(loadStoredTheme);
   const theme = THEMES[themeId];
+  const [fontSize, setFontSize] = useState<number>(loadStoredFontSize);
+  const [fontFamilyId, setFontFamilyId] = useState<string>(loadStoredFontFamily);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -154,8 +171,28 @@ export default function App() {
       // localStorage unavailable — theme just won't persist across restarts.
     }
   }, [themeId, theme]);
+
+  useEffect(() => {
+    document.documentElement.style.setProperty("--editor-font-size", `${fontSize}px`);
+    try {
+      window.localStorage.setItem(FONT_SIZE_STORAGE_KEY, String(fontSize));
+    } catch {
+      // localStorage unavailable — font size just won't persist across restarts.
+    }
+  }, [fontSize]);
+
+  useEffect(() => {
+    const stack = FONT_FAMILIES.find((f) => f.id === fontFamilyId)?.stack ?? FONT_FAMILIES[0].stack;
+    document.documentElement.style.setProperty("--editor-font-family", stack);
+    try {
+      window.localStorage.setItem(FONT_FAMILY_STORAGE_KEY, fontFamilyId);
+    } catch {
+      // localStorage unavailable — font family just won't persist across restarts.
+    }
+  }, [fontFamilyId]);
   const [viewMode, setViewMode] = useState<ViewMode>("text");
   const [imageData, setImageData] = useState<string | null>(null);
+  const [settingsModalOpen, setSettingsModalOpen] = useState(false);
 
   function promptForName(request: PromptRequest): Promise<string | null> {
     return new Promise((resolve) => {
@@ -169,6 +206,14 @@ export default function App() {
     });
   }
   const saveTimer = useRef<number | undefined>(undefined);
+  // Bumped whenever the buffer stops representing what a queued/in-flight save
+  // should write — a git operation, a reload, a file swap. A save compares the
+  // generation it captured against this before touching disk, so a write that
+  // was already scheduled can never land on top of newer content.
+  const saveGeneration = useRef(0);
+  // The write currently awaiting `writeTextFile`, if any. A git operation waits
+  // on this before running, so no save can complete mid-operation.
+  const saveInFlight = useRef<Promise<void> | null>(null);
   const editorRef = useRef<EditorHandle>(null);
   const pdfRef = useRef<PdfPreviewHandle>(null);
   const openRequestId = useRef(0);
@@ -205,12 +250,95 @@ export default function App() {
     setView("home");
   }
 
+  /**
+   * Cancel any queued autosave and invalidate any that is already scheduled or
+   * in flight, so it cannot write stale content after this point.
+   */
+  function invalidatePendingSave() {
+    saveGeneration.current++;
+    if (saveTimer.current) {
+      window.clearTimeout(saveTimer.current);
+      saveTimer.current = undefined;
+    }
+  }
+
+  /**
+   * Called before a git operation that rewrites the worktree. Cancelling the
+   * queued save is not enough on its own: one may already be awaiting
+   * `writeTextFile`, and if it lands *after* git has rewritten the file we'd
+   * silently undo the operation. So we also wait for it to settle first.
+   */
+  async function suspendSavesForGitOp() {
+    invalidatePendingSave();
+    try {
+      await saveInFlight.current;
+    } catch {
+      // A failed write is reported by its own caller; we only need it settled.
+    }
+  }
+
+  /**
+   * Re-read the open file from disk. Git operations (checkout, discard, stash)
+   * rewrite files underneath the editor, so its buffer would otherwise be
+   * stale — and the next autosave would write the stale copy straight back.
+   */
+  async function reloadOpenFile() {
+    const target = texPathRef.current;
+    if (!target || viewModeRef.current !== "text") return;
+    invalidatePendingSave();
+    // Take a ticket the same way openFile does: a slow read must not transplant
+    // this file's contents into whatever the user opened in the meantime.
+    const requestId = ++openRequestId.current;
+    try {
+      const fresh = await window.api.readTextFile(target);
+      if (openRequestId.current !== requestId) return;
+      setContent(fresh);
+      setDirty(false);
+    } catch {
+      if (openRequestId.current !== requestId) return;
+      // The operation removed the file (branch switch, discard of an untracked
+      // file). Tear the editor down rather than leaving a stale-but-editable
+      // buffer that the next keystroke would write back into existence.
+      handleFileRemoved(target);
+    }
+  }
+
+  // Baseline for the editor's change gutter: the open file's contents at HEAD.
+  // Refetched when the file changes and after any git operation, since both
+  // move what "unchanged" means.
+  useEffect(() => {
+    let cancelled = false;
+    if (!projectDir || !texPath || viewMode !== "text") {
+      setGitBaseline(null);
+      return;
+    }
+    const relPath = texPath.startsWith(projectDir + "/")
+      ? texPath.slice(projectDir.length + 1)
+      : null;
+    if (!relPath) {
+      setGitBaseline(null);
+      return;
+    }
+    window.api
+      .gitHeadFile(projectDir, relPath)
+      .then((head) => {
+        if (!cancelled) setGitBaseline(head);
+      })
+      .catch(() => {
+        if (!cancelled) setGitBaseline(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [projectDir, texPath, viewMode, gitRefreshToken]);
+
   // Writes out any edit still waiting in the autosave debounce, so switching
   // files (or the app closing) can't silently drop it.
   async function flushPendingSave() {
     if (!saveTimer.current) return;
     window.clearTimeout(saveTimer.current);
     saveTimer.current = undefined;
+    saveGeneration.current++;
     if (texPath && viewMode === "text") {
       await window.api.writeTextFile(texPath, content);
       setDirty(false);
@@ -275,6 +403,7 @@ export default function App() {
     if (texPath && viewMode === "text") {
       await window.api.writeTextFile(texPath, content);
       setDirty(false);
+      setGitRefreshToken((t) => t + 1);
     }
   }
 
@@ -283,16 +412,28 @@ export default function App() {
     setDirty(true);
     if (saveTimer.current) window.clearTimeout(saveTimer.current);
     const targetPath = texPath;
-    saveTimer.current = window.setTimeout(async () => {
+    const generation = saveGeneration.current;
+    saveTimer.current = window.setTimeout(() => {
       saveTimer.current = undefined;
       if (
-        targetPath &&
-        texPathRef.current === targetPath &&
-        viewModeRef.current === "text"
+        !targetPath ||
+        texPathRef.current !== targetPath ||
+        viewModeRef.current !== "text" ||
+        // A git operation, reload, or file swap happened after this save was
+        // queued; `next` is stale and must not be written.
+        saveGeneration.current !== generation
       ) {
-        await window.api.writeTextFile(targetPath, next);
-        setDirty(false);
+        return;
       }
+      const write = window.api
+        .writeTextFile(targetPath, next)
+        .then(() => {
+          if (saveGeneration.current === generation) setDirty(false);
+        })
+        .finally(() => {
+          if (saveInFlight.current === write) saveInFlight.current = null;
+        });
+      saveInFlight.current = write;
     }, 500);
   }
 
@@ -332,10 +473,7 @@ export default function App() {
     if (texPath && (texPath === path || texPath.startsWith(path + "/"))) {
       // Cancel rather than flush — the file is gone, so a pending autosave
       // must not be allowed to write it back into existence.
-      if (saveTimer.current) {
-        window.clearTimeout(saveTimer.current);
-        saveTimer.current = undefined;
-      }
+      invalidatePendingSave();
       setTexPath(null);
       setContent("");
       setPdfPath(null);
@@ -394,7 +532,9 @@ export default function App() {
   async function handleCompile() {
     if (!texPath || viewMode !== "text") return;
     setCompiling(true);
-    if (saveTimer.current) window.clearTimeout(saveTimer.current);
+    // Reset the handle as well as clearing it; a stale truthy handle makes
+    // flushPendingSave believe a write is forever pending.
+    invalidatePendingSave();
     await window.api.writeTextFile(texPath, content);
     setDirty(false);
     try {
@@ -415,6 +555,7 @@ export default function App() {
     {
       label: "File",
       items: [
+        { label: "All Projects", onSelect: goHome },
         { label: "Open…", onSelect: handleOpenFileDialog },
         { label: "Save", onSelect: saveNow, disabled: !texPath || viewMode !== "text" },
         {
@@ -429,7 +570,15 @@ export default function App() {
       items: [
         { label: "Undo", onSelect: () => editorRef.current?.undo() },
         { label: "Redo", onSelect: () => editorRef.current?.redo() },
+        { label: "Toggle Comment", onSelect: () => editorRef.current?.toggleComment() },
         { label: "Find / Replace", onSelect: () => editorRef.current?.find() },
+        {
+          label: "Find in Files",
+          onSelect: () => {
+            setSidebarMode("search");
+            setSidebarVisible(true);
+          },
+        },
       ],
     },
     {
@@ -444,92 +593,69 @@ export default function App() {
       items: [
         {
           label: sidebarVisible ? "Hide File Sidebar" : "Show File Sidebar",
-          onSelect: () => setSidebarVisible((v) => !v),
-        },
-        {
-          label: terminalVisible ? "Hide Terminal" : "Show Terminal",
-          onSelect: () => setTerminalVisible((v) => !v),
+          onSelect: () => {
+            if (sidebarVisible) {
+              setSidebarVisible(false);
+            } else {
+              setSidebarMode("files");
+              setSidebarVisible(true);
+            }
+          },
         },
       ],
-    },
-    {
-      label: "Theme",
-      items: THEME_LIST.map((t) => ({
-        label: (t.id === themeId ? "✓ " : "") + t.label,
-        onSelect: () => setThemeId(t.id),
-      })),
     },
   ];
 
   return (
     <div className="app">
-      <div className="activity-bar">
-        <button className="activity-bar-logo" onClick={goHome} title="Home">
-          <img className="logo-icon" src={logoIcon} alt="LocalTeX" width="24" height="24" />
-        </button>
-        {view === "editor" && (
-          <div className="activity-bar-icons">
-            <button
-              className={
-                "activity-bar-btn" +
-                (sidebarVisible && sidebarMode === "files" ? " active" : "")
-              }
-              onClick={() => {
-                if (sidebarVisible && sidebarMode === "files") {
-                  setSidebarVisible(false);
-                } else {
-                  setSidebarMode("files");
-                  setSidebarVisible(true);
-                }
-              }}
-              title="Files"
-            >
-              <FilesRailIcon />
-            </button>
-            <button
-              className={
-                "activity-bar-btn" +
-                (sidebarVisible && sidebarMode === "search" ? " active" : "")
-              }
-              onClick={() => {
-                if (sidebarVisible && sidebarMode === "search") {
-                  setSidebarVisible(false);
-                } else {
-                  setSidebarMode("search");
-                  setSidebarVisible(true);
-                }
-              }}
-              title="Search"
-            >
-              <SearchRailIcon />
-            </button>
-            <button
-              className={"activity-bar-btn" + (terminalVisible ? " active" : "")}
-              onClick={() => setTerminalVisible((v) => !v)}
-              title="Source control (terminal)"
-            >
-              <GitRailIcon />
-            </button>
-          </div>
-        )}
-      </div>
       <div className="app-body">
       <div className="toolbar">
         {view === "editor" && (
           <>
+            <button className="toolbar-logo" onClick={goHome} title="Back to All Projects">
+              <img src={logoIcon} alt="" width="18" height="18" />
+            </button>
             <MenuBar menus={menus} />
+            <div className="menu-dropdown">
+              <button
+                className={
+                  "menu-trigger" +
+                  (sidebarVisible && sidebarMode === "git" ? " open" : "")
+                }
+                onClick={() => {
+                  if (sidebarVisible && sidebarMode === "git") {
+                    setSidebarVisible(false);
+                  } else {
+                    setSidebarMode("git");
+                    setSidebarVisible(true);
+                    // Status goes stale while the panel is hidden; re-read on open.
+                    setGitRefreshToken((t) => t + 1);
+                  }
+                }}
+              >
+                Git
+              </button>
+            </div>
+            <div className="menu-dropdown">
+              <button
+                className={"menu-trigger" + (terminalVisible ? " open" : "")}
+                onClick={() => setTerminalVisible((v) => !v)}
+              >
+                Terminal
+              </button>
+            </div>
+            <div className="menu-dropdown">
+              <button
+                className={"menu-trigger" + (settingsModalOpen ? " open" : "")}
+                onClick={() => setSettingsModalOpen(true)}
+              >
+                Settings
+              </button>
+            </div>
             <span className="filename">
               {texPath?.split("/").pop()}
               {dirty ? " *" : ""}
             </span>
-            {log && (
-              <button
-                className="log-toggle-btn"
-                onClick={() => setLogVisible((v) => !v)}
-              >
-                {logVisible ? "Hide Log" : "Show Log"}
-              </button>
-            )}
           </>
         )}
       </div>
@@ -555,6 +681,29 @@ export default function App() {
                     onGoToLine={(line) => editorRef.current?.goToLine(line)}
                   />
                 </>
+              ) : sidebarMode === "git" ? (
+                <GitPanel
+                  rootDir={projectDir}
+                  refreshToken={gitRefreshToken}
+                  onOpenDiff={(path, diff, staged) =>
+                    setDiffTarget({ path, diff, staged })
+                  }
+                  onWorktreeWillChange={suspendSavesForGitOp}
+                  onRepoChanged={(worktree) => {
+                    // Only re-read the buffer when files on disk may have moved
+                    // under it. Doing it for index-only operations (stage,
+                    // commit, refresh) would throw away unsaved typing.
+                    if (worktree) reloadOpenFile();
+                    // A committed change moves HEAD, so the gutter baseline is
+                    // stale either way.
+                    setTreeRefreshToken((t) => t + 1);
+                    setGitRefreshToken((t) => t + 1);
+                    // The open diff is a snapshot; after any operation it may
+                    // no longer describe anything real.
+                    setDiffTarget(null);
+                  }}
+                  promptForName={promptForName}
+                />
               ) : (
                 <SearchPanel rootDir={projectDir} onOpenMatch={handleOpenSearchMatch} />
               )}
@@ -583,8 +732,16 @@ export default function App() {
         )}
         <div className="editor-preview-area">
           {(() => {
-            const viewerContent =
-              viewMode === "image" ? (
+            // A diff takes over the pane the way VS Code's diff editor does,
+            // and returning early keeps the editor/PDF panes mounted behind it.
+            const viewerContent = diffTarget ? (
+              <DiffView
+                filePath={diffTarget.path}
+                diff={diffTarget.diff}
+                staged={diffTarget.staged}
+                onClose={() => setDiffTarget(null)}
+              />
+            ) : viewMode === "image" ? (
                 <div className="image-viewer">
                   {imageData ? (
                     <img
@@ -617,7 +774,13 @@ export default function App() {
                       <SymbolToolbar
                         onInsert={(text) => editorRef.current?.insertAtCursor(text)}
                       />
-                      <Editor ref={editorRef} value={content} onChange={handleChange} theme={theme.editorTheme} />
+                      <Editor
+                        ref={editorRef}
+                        value={content}
+                        onChange={handleChange}
+                        theme={theme.editorTheme}
+                        baseline={gitBaseline}
+                      />
                     </div>
                   );
 
@@ -651,6 +814,9 @@ export default function App() {
                             canCompile={!!texPath}
                             onSyncClick={handleSyncFromPdf}
                             onSyncToPdf={handleSyncToPdf}
+                            log={log}
+                            logVisible={logVisible}
+                            onToggleLog={() => setLogVisible((v) => !v)}
                           />
                           <button
                             className="pdf-fold-btn"
@@ -698,7 +864,6 @@ export default function App() {
                 <div className="terminal-body">
                   <Terminal cwd={projectDir} theme={theme.terminal} />
                 </div>
-                {log && logVisible && <pre className="log">{log}</pre>}
               </div>
             );
 
@@ -714,7 +879,9 @@ export default function App() {
               );
             }
 
-            if (viewMode === "text") {
+            // A diff replaces the editor, so it takes the generic
+            // viewerContent path below rather than this editor-specific one.
+            if (viewMode === "text" && !diffTarget) {
               // Bottom dock only splits the editor column, so the PDF
               // preview keeps its full height instead of being squeezed.
               const editorWithTerminal = (
@@ -728,7 +895,13 @@ export default function App() {
                       <SymbolToolbar
                         onInsert={(text) => editorRef.current?.insertAtCursor(text)}
                       />
-                      <Editor ref={editorRef} value={content} onChange={handleChange} theme={theme.editorTheme} />
+                      <Editor
+                        ref={editorRef}
+                        value={content}
+                        onChange={handleChange}
+                        theme={theme.editorTheme}
+                        baseline={gitBaseline}
+                      />
                     </div>
                   }
                   right={terminalPanel}
@@ -765,6 +938,9 @@ export default function App() {
                         canCompile={!!texPath}
                         onSyncClick={handleSyncFromPdf}
                         onSyncToPdf={handleSyncToPdf}
+                        log={log}
+                        logVisible={logVisible}
+                        onToggleLog={() => setLogVisible((v) => !v)}
                       />
                       <button
                         className="pdf-fold-btn"
@@ -795,6 +971,146 @@ export default function App() {
       )}
       </div>
       <PromptDialog state={promptState} />
+      {settingsModalOpen && (
+        <div className="modal-overlay" onClick={() => setSettingsModalOpen(false)}>
+          <div className="modal-dialog settings-dialog" onClick={(e) => e.stopPropagation()}>
+            <div className="settings-dialog-header">
+              <div className="settings-dialog-heading">
+                <span className="settings-dialog-icon" aria-hidden="true">
+                  <svg viewBox="0 0 16 16" width="17" height="17" fill="none"
+                       stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="8" cy="8" r="2.1" />
+                    <path d="M8 1.8v1.6M8 12.6v1.6M14.2 8h-1.6M3.4 8H1.8
+                              M12.2 3.8l-1.1 1.1M4.9 11.1l-1.1 1.1
+                              M12.2 12.2l-1.1-1.1M4.9 4.9 3.8 3.8" />
+                  </svg>
+                </span>
+                <span className="modal-title">Settings</span>
+              </div>
+              <button
+                className="settings-dialog-close"
+                onClick={() => setSettingsModalOpen(false)}
+                aria-label="Close"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="settings-section">
+              <div className="settings-section-label">Theme</div>
+              <div className="settings-swatch-row">
+                {THEME_LIST.map((t) => (
+                  <button
+                    key={t.id}
+                    className={"settings-swatch" + (t.id === themeId ? " active" : "")}
+                    onClick={() => setThemeId(t.id)}
+                    title={t.label}
+                  >
+                    <span
+                      className="settings-swatch-preview"
+                      style={{ background: t.vars["--bg-app"] }}
+                    >
+                      <span
+                        className="settings-swatch-dot"
+                        style={{ background: t.vars["--accent"] }}
+                      />
+                      <span
+                        className="settings-swatch-line"
+                        style={{ background: t.vars["--text-secondary"] }}
+                      />
+                      {t.id === themeId && <span className="settings-swatch-check">✓</span>}
+                    </span>
+                    <span className="settings-swatch-label">{t.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="settings-section">
+              <div className="settings-section-label">Font Family</div>
+              <div className="settings-font-list">
+                {FONT_FAMILIES.map((f) => (
+                  <button
+                    key={f.id}
+                    className={"settings-font-option" + (f.id === fontFamilyId ? " active" : "")}
+                    onClick={() => setFontFamilyId(f.id)}
+                    style={{ fontFamily: f.stack }}
+                  >
+                    <span className="settings-font-option-label">{f.label}</span>
+                    <span className="settings-font-option-sample">Aa 12</span>
+                    {f.id === fontFamilyId && <span className="settings-font-option-check">✓</span>}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="settings-section">
+              <div className="settings-section-label-row">
+                <span className="settings-section-label">Font Size</span>
+                <span className="settings-font-value">{fontSize}px</span>
+              </div>
+              <div className="settings-font-slider-row">
+                <button
+                  className="settings-stepper-btn"
+                  onClick={() => setFontSize(FONT_SIZES[Math.max(0, FONT_SIZES.indexOf(fontSize) - 1)])}
+                  disabled={fontSize === FONT_SIZES[0]}
+                  aria-label="Decrease font size"
+                >
+                  −
+                </button>
+                <input
+                  className="settings-font-slider"
+                  type="range"
+                  min={FONT_SIZES[0]}
+                  max={FONT_SIZES[FONT_SIZES.length - 1]}
+                  step={1}
+                  list="settings-font-ticks"
+                  value={fontSize}
+                  onChange={(e) => {
+                    const raw = Number(e.target.value);
+                    const nearest = FONT_SIZES.reduce((a, b) =>
+                      Math.abs(b - raw) < Math.abs(a - raw) ? b : a,
+                    );
+                    setFontSize(nearest);
+                  }}
+                />
+                <datalist id="settings-font-ticks">
+                  {FONT_SIZES.map((size) => (
+                    <option key={size} value={size} />
+                  ))}
+                </datalist>
+                <button
+                  className="settings-stepper-btn"
+                  onClick={() =>
+                    setFontSize(
+                      FONT_SIZES[Math.min(FONT_SIZES.length - 1, FONT_SIZES.indexOf(fontSize) + 1)],
+                    )
+                  }
+                  disabled={fontSize === FONT_SIZES[FONT_SIZES.length - 1]}
+                  aria-label="Increase font size"
+                >
+                  +
+                </button>
+              </div>
+              <div
+                className="settings-font-preview"
+                style={{
+                  fontSize,
+                  fontFamily: FONT_FAMILIES.find((f) => f.id === fontFamilyId)?.stack,
+                }}
+              >
+                \section{"{"}The quick brown fox{"}"}
+              </div>
+            </div>
+
+            <div className="modal-actions">
+              <button className="modal-btn modal-btn-primary" onClick={() => setSettingsModalOpen(false)}>
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

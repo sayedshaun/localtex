@@ -40,6 +40,9 @@ const PdfPreview = forwardRef<
     onSyncClick?: (page: number, xPt: number, yPt: number) => void;
     onSyncToPdf?: () => void;
     standalone?: boolean;
+    log?: string;
+    logVisible?: boolean;
+    onToggleLog?: () => void;
   }
 >(function PdfPreview(
   {
@@ -51,6 +54,9 @@ const PdfPreview = forwardRef<
     onSyncClick,
     onSyncToPdf,
     standalone,
+    log,
+    logVisible,
+    onToggleLog,
   },
   ref,
 ) {
@@ -241,6 +247,14 @@ const PdfPreview = forwardRef<
               {compiling ? "Compiling…" : "Compile"}
             </button>
           )}
+          {!standalone && (
+            <span
+              className="compile-info"
+              title="LocalTeX compiles with Tectonic, which fetches new LaTeX packages on demand — an internet connection is needed the first time a package is used, after which it's cached locally."
+            >
+              ⓘ
+            </span>
+          )}
           {onSyncToPdf && hasDoc && (
             <button
               className="sync-pdf-btn"
@@ -248,6 +262,15 @@ const PdfPreview = forwardRef<
               title="Jump the PDF preview to the cursor's position"
             >
               ⇅ Sync
+            </button>
+          )}
+          {log && (
+            <button
+              className={"log-toggle-btn" + (logVisible ? " active" : "")}
+              onClick={onToggleLog}
+              title="Show the last compile log"
+            >
+              {logVisible ? "Hide Log" : "Show Log"}
             </button>
           )}
         </div>
@@ -273,7 +296,9 @@ const PdfPreview = forwardRef<
         </div>
       </div>
       <div className={"pdf-progress-bar" + (compiling ? " active" : "")} />
-      {error ? (
+      {log && logVisible ? (
+        <pre className="log">{log}</pre>
+      ) : error ? (
         <div className="pdf-empty pdf-error">{error}</div>
       ) : !hasDoc ? (
         <div className="pdf-empty">No PDF yet — compile to see a preview.</div>

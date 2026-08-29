@@ -67,8 +67,21 @@ function createWindow() {
       preload: path.join(__dirname, "preload.cjs"),
       contextIsolation: true,
       nodeIntegration: false,
+      // Electron 43 defaults this to true; state it so the intent survives an
+      // upgrade. The preload only touches contextBridge/ipcRenderer, so it is
+      // sandbox-compatible.
+      sandbox: true,
     },
   });
+
+  // The renderer only ever loads its own bundle. Deny navigation and popups
+  // outright, so a link inside a rendered document cannot move the app window
+  // or open a chooser — and any future injection has nowhere to go.
+  win.webContents.on("will-navigate", (event, url) => {
+    const allowed = isDev && url.startsWith("http://localhost:5173");
+    if (!allowed) event.preventDefault();
+  });
+  win.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
 
   // Electron's built-in pinch/ctrl-scroll page zoom scales the whole
   // window's content independently of our own canvas-based PDF zoom — with
@@ -204,16 +217,85 @@ ipcMain.handle("import-project-zip", async (_e, zipPath, name) => {
   }
   fs.mkdirSync(dir, { recursive: true });
 
-  await new Promise((resolve, reject) => {
-    execFile("unzip", ["-o", zipPath, "-d", dir], (error) => {
-      if (error) reject(error);
-      else resolve();
+  try {
+    // An archive is untrusted input. Two entry kinds are actively dangerous:
+    //
+    //  - `.git/`: repo-local config and hooks are executable surface. A
+    //    `core.fsmonitor` value runs on a plain `git status`, which the Source
+    //    Control panel issues automatically the moment it's opened.
+    //  - symlinks: unzip restores them, including absolute targets. A
+    //    `notes.tex -> ~/.bashrc` link then reads and (via autosave) writes
+    //    straight through to the target.
+    //
+    // unzip has no per-entry exclude for symlinks, so list first and refuse.
+    const listing = await new Promise((resolve, reject) => {
+      execFile(
+        "unzip",
+        // -Z1 lists bare entry names. Note `-l` would override `-1` and give
+        // the verbose listing instead, which no longer matches the `.git` test.
+        ["-Z1", zipPath],
+        { maxBuffer: 8 * 1024 * 1024 },
+        (error, stdout) => (error ? reject(error) : resolve(stdout || "")),
+      );
     });
-  });
+    const entries = listing.split("\n").map((l) => l.trim()).filter(Boolean);
+    const gitEntry = entries.find(
+      (e) => e === ".git" || e.startsWith(".git/") || e.includes("/.git/"),
+    );
+    if (gitEntry) {
+      throw new Error(
+        "this archive contains a .git directory, which can carry executable " +
+          "git hooks and config. Remove it and re-export, or unzip it yourself " +
+          "and open the folder.",
+      );
+    }
+
+    await new Promise((resolve, reject) => {
+      // -X so unzip does not restore ownership/permission extras.
+      execFile("unzip", ["-o", "-X", zipPath, "-d", dir], (error) => {
+        if (error) reject(error);
+        else resolve();
+      });
+    });
+
+    // unzip defers symlink creation to the end of extraction, so check after.
+    const symlink = findSymlink(dir, dir);
+    if (symlink) {
+      throw new Error(
+        `this archive contains a symbolic link (${path.relative(dir, symlink)}), ` +
+          "which could point outside the project. Import refused.",
+      );
+    }
+  } catch (e) {
+    // Don't leave a partial project behind; it would also block a retry under
+    // the same name.
+    fs.rmSync(dir, { recursive: true, force: true });
+    throw e;
+  }
 
   const texPath = findMainTex(dir);
   return { name, dir, texPath, modifiedMs: fs.statSync(dir).mtimeMs };
 });
+
+/** First symlink found under `dir`, or null. Does not follow directories. */
+function findSymlink(dir, root, depth = 0) {
+  if (depth > MAX_TREE_DEPTH) return null;
+  let names;
+  try {
+    names = fs.readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return null;
+  }
+  for (const entry of names) {
+    const full = path.join(dir, entry.name);
+    if (entry.isSymbolicLink()) return full;
+    if (entry.isDirectory()) {
+      const found = findSymlink(full, root, depth + 1);
+      if (found) return found;
+    }
+  }
+  return null;
+}
 
 ipcMain.handle("read-text-file", (_e, filePath) => {
   return fs.readFileSync(filePath, "utf-8");
@@ -252,16 +334,25 @@ ipcMain.handle("upload-file", async (_e, dir) => {
 
 // ---- file tree ----
 
-function readDirEntry(dirPath) {
-  const names = fs.readdirSync(dirPath).filter((n) => !n.startsWith("."));
-  const entries = names.map((name) => {
+// Both walkers run synchronously on the main process, so a symlink loop
+// (`loop -> .`) or a pathological nesting depth would freeze the whole app,
+// not just one renderer task. Cap the depth and never follow a link.
+const MAX_TREE_DEPTH = 32;
+
+function readDirEntry(dirPath, depth = 0) {
+  if (depth > MAX_TREE_DEPTH) return [];
+  const names = fs
+    .readdirSync(dirPath, { withFileTypes: true })
+    .filter((e) => !e.name.startsWith(".") && !e.isSymbolicLink());
+  const entries = names.map((entry) => {
+    const name = entry.name;
     const entryPath = path.join(dirPath, name);
-    const isDir = fs.statSync(entryPath).isDirectory();
+    const isDir = entry.isDirectory();
     return {
       name,
       path: entryPath,
       is_dir: isDir,
-      children: isDir ? readDirEntry(entryPath) : null,
+      children: isDir ? readDirEntry(entryPath, depth + 1) : null,
     };
   });
   entries.sort((a, b) => {
@@ -281,12 +372,14 @@ const SEARCH_SKIP_EXTENSIONS = new Set([
   "bmp", "webp",
 ]);
 
-function walkFiles(dir, out) {
-  for (const name of fs.readdirSync(dir)) {
-    if (name.startsWith(".")) continue;
+function walkFiles(dir, out, depth = 0) {
+  if (depth > MAX_TREE_DEPTH) return;
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const name = entry.name;
+    if (name.startsWith(".") || entry.isSymbolicLink()) continue;
     const full = path.join(dir, name);
-    if (fs.statSync(full).isDirectory()) {
-      walkFiles(full, out);
+    if (entry.isDirectory()) {
+      walkFiles(full, out, depth + 1);
     } else {
       out.push(full);
     }
@@ -345,6 +438,398 @@ ipcMain.handle("rename-path", (_e, from, to) => {
 
 ipcMain.handle("delete-path", (_e, targetPath) => {
   fs.rmSync(targetPath, { recursive: true, force: true });
+});
+
+// ---- git ----
+//
+// Everyday operations (stage, commit, branch, stash) live here; the terminal
+// stays the escape hatch for everything else. Anything needing credentials —
+// push, pull, clone — is deliberately absent: it belongs in the PTY, where
+// git can prompt for passphrases and tokens interactively.
+
+// LaTeX builds litter the project with artifacts; a repo that tracks them is
+// unusable. Seed .gitignore on init so the first status is just the sources.
+const GITIGNORE = `# LaTeX build artifacts
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.lof
+*.log
+*.lot
+*.out
+*.synctex.gz
+*.toc
+*.nav
+*.snm
+*.vrb
+*.pdf
+`;
+
+/*
+ * Repo-local config can make git execute commands: `core.fsmonitor` runs on a
+ * plain `git status`, and clean/smudge filters run on checkout. A project
+ * folder can arrive from anywhere (an imported zip, a shared directory), so
+ * every invocation disables those hooks rather than trusting the repo. Commit
+ * hooks are left alone: those live in `.git/hooks`, which `import-project-zip`
+ * refuses to extract.
+ */
+const GIT_SAFE_FLAGS = [
+  "-c",
+  "core.fsmonitor=",
+  "-c",
+  "core.hooksPath=/dev/null",
+  "-c",
+  "protocol.ext.allow=never",
+];
+
+function runGit(dir, args) {
+  return new Promise((resolve) => {
+    execFile(
+      "git",
+      [...GIT_SAFE_FLAGS, ...args],
+      { cwd: dir, maxBuffer: 10 * 1024 * 1024 },
+      (error, stdout, stderr) => {
+        resolve({
+          ok: !error,
+          stdout: stdout || "",
+          stderr: stderr || (error ? String(error.message) : ""),
+        });
+      },
+    );
+  });
+}
+
+// Two mutating git commands at once fight over .git/index.lock, and the user's
+// own terminal is a third writer we don't control. Serialising our own calls
+// removes the collisions we *can* prevent and makes lock errors rare enough to
+// just report.
+let gitQueue = Promise.resolve();
+
+function git(dir, args) {
+  const result = gitQueue.then(() => runGit(dir, args));
+  // Keep the chain alive regardless of individual outcomes.
+  gitQueue = result.then(
+    () => undefined,
+    () => undefined,
+  );
+  return result;
+}
+
+/**
+ * Resolve `relPath` inside `root`, refusing anything that escapes it. Guards the
+ * one handler that destroys data outside git's control; `path.join` alone is not
+ * enough because it happily normalises `../../..` into a real escape.
+ */
+function resolveInside(root, relPath) {
+  const base = fs.realpathSync(root);
+  const target = path.resolve(base, relPath);
+  if (target !== base && !target.startsWith(base + path.sep)) {
+    throw new Error(`refusing to touch a path outside the project: ${relPath}`);
+  }
+  return target;
+}
+
+/** Throw with git's own message, which is usually the most useful one. */
+function assertGit(result, fallback) {
+  if (!result.ok) throw new Error(result.stderr || result.stdout || fallback);
+  return result;
+}
+
+async function gitBranchName(dir) {
+  // symbolic-ref first: `rev-parse --abbrev-ref HEAD` *succeeds* with the
+  // literal string "HEAD" on a detached HEAD, which would otherwise be shown
+  // as a branch named HEAD (and committed onto during a rebase).
+  const symbolic = await git(dir, ["symbolic-ref", "-q", "--short", "HEAD"]);
+  if (symbolic.ok && symbolic.stdout.trim()) return symbolic.stdout.trim();
+  // Detached: report the short commit so the UI can say where we are.
+  const short = await git(dir, ["rev-parse", "--short", "HEAD"]);
+  return short.ok ? `(detached at ${short.stdout.trim()})` : null;
+}
+
+ipcMain.handle("git-status", async (_e, dir) => {
+  const inside = await git(dir, ["rev-parse", "--is-inside-work-tree"]);
+  if (!inside.ok || inside.stdout.trim() !== "true") {
+    return { isRepo: false, branch: null, files: [], hasCommits: false };
+  }
+
+  // Porcelain paths are relative to the repository root, but every handler runs
+  // with cwd = the project dir. If the project merely sits *inside* a larger
+  // repo (e.g. the user ran `git init` in ~/LocalTeX-Projects), those paths
+  // wouldn't resolve here and stage/discard would target the wrong files — or
+  // silently no-op. Report "not a repo" rather than acting on bad paths.
+  const toplevel = await git(dir, ["rev-parse", "--show-toplevel"]);
+  const root = toplevel.ok ? toplevel.stdout.trim() : null;
+  let sameRoot = false;
+  try {
+    sameRoot = !!root && fs.realpathSync(root) === fs.realpathSync(dir);
+  } catch {
+    sameRoot = false;
+  }
+  if (!sameRoot) {
+    return {
+      isRepo: false,
+      branch: null,
+      files: [],
+      hasCommits: false,
+      nestedIn: root,
+    };
+  }
+
+  // -z + porcelain v1 so filenames with spaces or quotes survive intact.
+  const status = await git(dir, ["status", "--porcelain=v1", "-z", "-uall"]);
+  const files = [];
+  if (status.ok) {
+    const parts = status.stdout.split("\0");
+    for (let i = 0; i < parts.length; i++) {
+      const entry = parts[i];
+      if (entry.length < 4) continue;
+      const index = entry[0];
+      const worktree = entry[1];
+      let filePath = entry.slice(3);
+      // Renames/copies emit the source path as a second NUL-separated field.
+      let origPath = null;
+      if (index === "R" || index === "C") {
+        origPath = parts[++i] ?? null;
+      }
+      files.push({ path: filePath, origPath, index, worktree });
+    }
+  }
+
+  const revs = await git(dir, ["rev-parse", "--verify", "HEAD"]);
+  return {
+    isRepo: true,
+    branch: await gitBranchName(dir),
+    files,
+    hasCommits: revs.ok,
+  };
+});
+
+ipcMain.handle("git-diff", async (_e, dir, filePath, staged) => {
+  const args = ["diff", "--no-color"];
+  if (staged) args.push("--cached");
+  args.push("--", filePath);
+  const result = await git(dir, args);
+  if (result.ok && result.stdout.trim()) return result.stdout;
+
+  // Untracked files have no diff; show the file contents as all-added instead.
+  const tracked = await git(dir, ["ls-files", "--error-unmatch", "--", filePath]);
+  if (!tracked.ok) {
+    try {
+      const target = resolveInside(dir, filePath);
+      const stat = fs.statSync(target);
+      if (stat.isDirectory()) return "";
+      // Guard the size: git itself never hands us a whole file here, and a
+      // dropped-in figure would otherwise be decoded and shipped over IPC as
+      // hundreds of thousands of replacement-character lines.
+      const MAX_UNTRACKED_DIFF = 512 * 1024;
+      if (stat.size > MAX_UNTRACKED_DIFF) {
+        return `Untracked file (${Math.round(stat.size / 1024)} KB) — too large to preview.`;
+      }
+      const buf = fs.readFileSync(target);
+      // A NUL byte in the first block is git's own binary heuristic.
+      if (buf.subarray(0, 8000).includes(0)) {
+        return "Binary file — no textual diff to show.";
+      }
+      const body = buf.toString("utf-8");
+      // Drop the phantom final element from a trailing newline, so the diff
+      // doesn't end in a bare "+".
+      const lines = body.split("\n");
+      if (lines[lines.length - 1] === "") lines.pop();
+      return lines.map((l) => `+${l}`).join("\n");
+    } catch {
+      return "";
+    }
+  }
+  return result.stdout;
+});
+
+ipcMain.handle("git-log", async (_e, dir, limit) => {
+  const result = await git(dir, [
+    "log",
+    `-n${limit ?? 20}`,
+    "--pretty=format:%h%x00%an%x00%ar%x00%s",
+  ]);
+  if (!result.ok || !result.stdout.trim()) return [];
+  return result.stdout
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => {
+      const [hash, author, when, subject] = line.split("\0");
+      return { hash, author, when, subject };
+    });
+});
+
+/**
+ * File contents at HEAD, for the editor's change gutter. `null` means the file
+ * isn't in HEAD at all (new file), which the gutter renders as all-added.
+ */
+ipcMain.handle("git-head-file", async (_e, dir, relPath) => {
+  const result = await git(dir, ["show", `HEAD:${relPath}`]);
+  return result.ok ? result.stdout : null;
+});
+
+// ---- git: mutating operations ----
+
+ipcMain.handle("git-init", async (_e, dir) => {
+  assertGit(await git(dir, ["init"]), "git init failed");
+
+  const ignorePath = path.join(dir, ".gitignore");
+  if (!fs.existsSync(ignorePath)) fs.writeFileSync(ignorePath, GITIGNORE);
+
+  // A fresh repo with no identity fails at commit time with a confusing
+  // error, so fall back to a local one when the user has no global config.
+  // Check both keys independently: a global config with a name but no email is
+  // common, and it fails at commit time with "unable to auto-detect email".
+  const name = await git(dir, ["config", "user.name"]);
+  if (!name.ok || !name.stdout.trim()) {
+    await git(dir, ["config", "user.name", "LocalTeX"]);
+  }
+  const email = await git(dir, ["config", "user.email"]);
+  if (!email.ok || !email.stdout.trim()) {
+    await git(dir, ["config", "user.email", "localtex@localhost"]);
+  }
+});
+
+ipcMain.handle("git-stage", async (_e, dir, filePaths) => {
+  if (!filePaths.length) return;
+  assertGit(await git(dir, ["add", "--", ...filePaths]), "git add failed");
+});
+
+ipcMain.handle("git-unstage", async (_e, dir, filePaths) => {
+  if (!filePaths.length) return;
+  // With no commits yet there's no HEAD to reset against, so empty the index
+  // entry instead — plain `reset` fails on an unborn branch.
+  const hasHead = await git(dir, ["rev-parse", "--verify", "HEAD"]);
+  const args = hasHead.ok
+    ? ["reset", "-q", "--", ...filePaths]
+    : ["rm", "--cached", "-q", "--", ...filePaths];
+  assertGit(await git(dir, args), "git reset failed");
+});
+
+ipcMain.handle("git-discard", async (_e, dir, filePaths) => {
+  if (!filePaths.length) return;
+  const hasHead = await git(dir, ["rev-parse", "--verify", "HEAD"]);
+
+  for (const filePath of filePaths) {
+    // `ls-files --error-unmatch` matches anything in the *index*, so a newly
+    // added file looks "tracked" — but `checkout HEAD -- f` cannot restore a
+    // path that isn't in HEAD, and fails with a raw pathspec error. Ask
+    // whether HEAD knows the path, not whether the index does.
+    const inHead = hasHead.ok
+      ? await git(dir, ["cat-file", "-e", `HEAD:${filePath}`])
+      : { ok: false };
+
+    if (inHead.ok) {
+      // Reset index and worktree together: a staged rename otherwise leaves
+      // half of itself behind.
+      const restored = await git(dir, [
+        "restore",
+        "--staged",
+        "--worktree",
+        "--source=HEAD",
+        "--",
+        filePath,
+      ]);
+      assertGit(restored, "git restore failed");
+      continue;
+    }
+
+    // Not in HEAD: the file is new. Drop it from the index if it's staged,
+    // then remove it from disk.
+    const inIndex = await git(dir, ["ls-files", "--error-unmatch", "--", filePath]);
+    if (inIndex.ok) {
+      assertGit(
+        await git(dir, ["rm", "--cached", "-q", "--force", "--", filePath]),
+        "git rm --cached failed",
+      );
+    }
+    // resolveInside, not path.join: this is the one handler that destroys data
+    // git can't recover, so it must refuse a path that escapes the project.
+    const target = resolveInside(dir, filePath);
+    fs.rmSync(target, { recursive: true, force: true });
+  }
+});
+
+ipcMain.handle("git-commit", async (_e, dir, message, amend) => {
+  if (!amend) {
+    const staged = await git(dir, ["diff", "--cached", "--name-only"]);
+    if (staged.ok && !staged.stdout.trim()) {
+      throw new Error("nothing staged to commit");
+    }
+  }
+  const args = ["commit", "-m", message];
+  if (amend) args.push("--amend");
+  assertGit(await git(dir, args), "git commit failed");
+});
+
+/** Subject of HEAD, so "amend" can prefill the message being rewritten. */
+ipcMain.handle("git-head-message", async (_e, dir) => {
+  const result = await git(dir, ["log", "-1", "--pretty=%B"]);
+  return result.ok ? result.stdout.trim() : null;
+});
+
+ipcMain.handle("git-branches", async (_e, dir) => {
+  const result = await git(dir, [
+    "for-each-ref",
+    "--sort=-committerdate",
+    "--format=%(refname:short)%00%(HEAD)",
+    "refs/heads",
+  ]);
+  if (!result.ok || !result.stdout.trim()) return [];
+  return result.stdout
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => {
+      const [name, head] = line.split("\0");
+      return { name, current: head === "*" };
+    });
+});
+
+ipcMain.handle("git-checkout-branch", async (_e, dir, branch) => {
+  // `--` so a name that happens to match a path can't make git restore that
+  // file and exit 0, which would report a successful "branch switch".
+  assertGit(await git(dir, ["checkout", branch, "--"]), "git checkout failed");
+});
+
+ipcMain.handle("git-create-branch", async (_e, dir, branch) => {
+  assertGit(await git(dir, ["checkout", "-b", branch, "--"]), "git branch failed");
+});
+
+ipcMain.handle("git-stash-list", async (_e, dir) => {
+  const result = await git(dir, ["stash", "list", "--pretty=%gd%x00%s"]);
+  if (!result.ok || !result.stdout.trim()) return [];
+  return result.stdout
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => {
+      const [ref, subject] = line.split("\0");
+      return { ref, subject };
+    });
+});
+
+ipcMain.handle("git-stash-push", async (_e, dir, message) => {
+  // -u so untracked files come along; otherwise "stash" silently leaves the
+  // new chapter file sitting in the worktree.
+  const args = ["stash", "push", "-u"];
+  if (message) args.push("-m", message);
+  const result = await git(dir, args);
+  assertGit(result, "git stash failed");
+  if (result.stdout.includes("No local changes")) {
+    throw new Error("no local changes to stash");
+  }
+});
+
+ipcMain.handle("git-stash-apply", async (_e, dir, ref, drop) => {
+  assertGit(
+    await git(dir, [...(drop ? ["stash", "pop"] : ["stash", "apply"]), ref]),
+    "git stash apply failed",
+  );
+});
+
+ipcMain.handle("git-stash-drop", async (_e, dir, ref) => {
+  assertGit(await git(dir, ["stash", "drop", ref]), "git stash drop failed");
 });
 
 // ---- compile ----

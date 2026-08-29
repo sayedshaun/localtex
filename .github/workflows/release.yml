@@ -1,0 +1,68 @@
+name: Release
+
+# Builds the .deb and attaches it to a GitHub Release, so users without
+# Node/npm can just download and install — no build step required on their
+# end. Triggers on:
+#   - pushing a version tag (v1.2.3) — action-gh-release then creates the
+#     Release itself, so a plain `git push --tags` is enough on its own.
+#   - publishing a Release through the GitHub UI, whether it's for a brand
+#     new tag or one pushed earlier (a tag-push alone wouldn't re-fire for
+#     an already-existing tag, so this covers that case too).
+#   - workflow_dispatch, to sanity-check the build without cutting a release.
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  release:
+    types: [published]
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  build-deb:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install native module build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential python3
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build .deb
+        run: npm run electron:build
+
+      - name: Locate build artifact
+        id: artifact
+        run: |
+          deb_path=$(find dist-electron -maxdepth 1 -name '*.deb' | head -n1)
+          if [ -z "$deb_path" ]; then
+            echo "no .deb found under dist-electron/" >&2
+            exit 1
+          fi
+          echo "path=$deb_path" >> "$GITHUB_OUTPUT"
+
+      - name: Upload build artifact (workflow_dispatch runs)
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: localtex-deb
+          path: ${{ steps.artifact.outputs.path }}
+
+      - name: Publish release (tag pushes and release publishes)
+        if: github.event_name == 'push' || github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.artifact.outputs.path }}
+          generate_release_notes: true

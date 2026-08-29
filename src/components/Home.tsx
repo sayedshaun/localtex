@@ -65,6 +65,21 @@ function DownloadIcon() {
   );
 }
 
+function RenameIcon() {
+  return (
+    <svg viewBox="0 0 16 16" width="14" height="14">
+      <path
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.3"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M10.8 2.2a1.3 1.3 0 0 1 1.9 1.9L5.4 11.4l-2.6.7.7-2.6z"
+      />
+    </svg>
+  );
+}
+
 function TrashIcon() {
   return (
     <svg viewBox="0 0 16 16" width="15" height="15">
@@ -138,6 +153,23 @@ export default function Home({
       onOpenProject(project.dir, project.texPath);
     } catch (e) {
       alert(String(e));
+    }
+  }
+
+  async function handleRename(e: React.MouseEvent, project: ProjectSummary) {
+    e.stopPropagation();
+    const name = await promptForName({
+      title: "Rename project:",
+      defaultValue: project.name,
+    });
+    if (!name || name === project.name) return;
+    const parentDir = project.dir.slice(0, project.dir.lastIndexOf("/"));
+    const newDir = `${parentDir}/${name}`;
+    try {
+      await window.api.renamePath(project.dir, newDir);
+      await refresh();
+    } catch (err) {
+      alert(String(err));
     }
   }
 
@@ -287,6 +319,13 @@ export default function Home({
                       title="Export as zip (for Overleaf)"
                     >
                       <DownloadIcon />
+                    </button>
+                    <button
+                      className="home-row-action home-row-rename"
+                      onClick={(e) => handleRename(e, p)}
+                      title="Rename project"
+                    >
+                      <RenameIcon />
                     </button>
                     <button
                       className="home-row-action home-row-delete"

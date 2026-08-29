@@ -308,10 +308,11 @@ export default function FileTree({
     });
   }
 
+  // Left-click on blank space only resets the target for the toolbar buttons —
+  // the context menu belongs to right-click alone.
   function handleEmptyAreaClick(e: React.MouseEvent) {
     if (e.target !== e.currentTarget) return;
     setSelectedDir(rootDir);
-    openMenuAt(e.clientX, e.clientY);
   }
 
   function handleRowContextMenu(e: React.MouseEvent, entry: FileEntry) {

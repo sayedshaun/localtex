@@ -12,6 +12,7 @@ cloud, no account, no multi-gigabyte TeX Live install.
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Built with Electron](https://img.shields.io/badge/built%20with-Electron-47848F?logo=electron&logoColor=white)](https://electronjs.org)
 [![Platform: Linux | Windows](https://img.shields.io/badge/platform-Linux%20%7C%20Windows-orange?logo=linux&logoColor=white)](#install)
+[![Docs](https://img.shields.io/badge/docs-sayedshaun.github.io%2Flocaltex-6a3fc7)](https://sayedshaun.github.io/localtex/)
 
 [Docs](https://sayedshaun.github.io/localtex/) · [Install](#-install) · [Features](#-features) · [Uninstall](#-uninstall) · [Contributing](CONTRIBUTING.md)
 

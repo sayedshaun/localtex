@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>LocalTeX Docs</title>
-<meta name="description" content="Documentation for LocalTeX, a local-first LaTeX IDE — overview, features, install/uninstall, architecture, and contributing.">
+<meta name="description" content="Documentation for LocalTeX, a local-first LaTeX IDE — overview, features, install/uninstall, and contributing.">
 <link rel="icon" type="image/png" href="favicon.png">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=STIX+Two+Text:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <style>
@@ -16,7 +16,7 @@
     --ink-soft: #5b6470;
     --ink-faint: #8991a0;
     --border: rgba(23, 27, 33, 0.12);
-    --accent: #14764f;
+    --accent: #6a3fc7;
     --accent-ink: #ffffff;
     --command: #a2650a;
     --code-bg: #14181f;
@@ -38,8 +38,8 @@
       --ink-soft: #9aa3ae;
       --ink-faint: #6b7480;
       --border: rgba(231, 233, 236, 0.1);
-      --accent: #3ecf94;
-      --accent-ink: #0b1210;
+      --accent: #a889f0;
+      --accent-ink: #1a1030;
       --command: #e3a63e;
       --code-bg: #0f1216;
       --code-ink: #e7e9ec;
@@ -56,8 +56,8 @@
     --ink-soft: #9aa3ae;
     --ink-faint: #6b7480;
     --border: rgba(231, 233, 236, 0.1);
-    --accent: #3ecf94;
-    --accent-ink: #0b1210;
+    --accent: #a889f0;
+    --accent-ink: #1a1030;
     --command: #e3a63e;
     --code-bg: #0f1216;
     --code-ink: #e7e9ec;
@@ -450,11 +450,6 @@
 
   .note strong { color: var(--command); }
 
-  /* ---------- project tree ---------- */
-
-  .tree-panel .code-bar span { color: #8b93a0; }
-  .tree-line-comment { color: #6f92c9; }
-
   /* ---------- footer ---------- */
 
   footer {
@@ -504,7 +499,7 @@
 <header class="site-header">
   <img src="icon.png" alt="" />
   <span class="wordmark">LocalTeX</span>
-  <span class="version">v0.1.0</span>
+  <span class="version">v0.2.0</span>
   <button class="menu-toggle" id="menuToggle" aria-label="Toggle navigation" aria-expanded="false">
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 4h12M2 8h12M2 12h12" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
   </button>
@@ -512,7 +507,6 @@
     <a href="#why">Why</a>
     <a href="#features">Features</a>
     <a href="#install">Install</a>
-    <a href="#architecture">Architecture</a>
     <a href="#contributing">Contributing</a>
     <a class="gh" href="https://github.com/sayedshaun/localtex" target="_blank" rel="noopener">
       <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8a8 8 0 0 0 5.47 7.59c.4.07.55-.17.55-.38v-1.5c-2.22.48-2.69-1.07-2.69-1.07-.36-.92-.89-1.16-.89-1.16-.72-.5.06-.49.06-.49.8.06 1.22.82 1.22.82.71 1.22 1.87.87 2.33.66.07-.52.28-.87.5-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.01.08-2.11 0 0 .67-.21 2.2.82a7.65 7.65 0 0 1 4 0c1.53-1.03 2.2-.82 2.2-.82.44 1.1.16 1.91.08 2.11.51.56.82 1.28.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48v2.2c0 .21.15.46.55.38A8 8 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
@@ -529,9 +523,7 @@
       <li><a href="#features">Features</a></li>
       <li><a href="#install">Install</a></li>
       <li><a href="#uninstall">Uninstall</a></li>
-      <li><a href="#architecture">Architecture</a></li>
       <li><a href="#contributing">Contributing</a></li>
-      <li><a href="#license">License</a></li>
     </ul>
     <p class="eyebrow">Elsewhere</p>
     <ul>
@@ -547,7 +539,8 @@
       <h1>Overleaf's editing experience, running entirely on your own machine.</h1>
       <p class="lead">A live LaTeX editor, a real compiler, and a real terminal — one window, no cloud, no account, no multi-gigabyte TeX Live install.</p>
       <div class="hero-actions">
-        <a class="btn btn-primary" href="#install">Install LocalTeX</a>
+        <a class="btn btn-primary" href="https://github.com/sayedshaun/localtex/releases/latest" target="_blank" rel="noopener">Download</a>
+        <a class="btn btn-ghost" href="#install">Install instructions</a>
         <a class="btn btn-ghost" href="https://github.com/sayedshaun/localtex" target="_blank" rel="noopener">View source</a>
       </div>
       <div class="hero-shot">
@@ -654,7 +647,7 @@ sudo apt install ./localtex.deb</code></pre>
         </div>
       </div>
 
-      <div class="note"><strong>Note —</strong> every tagged release's <code class="inline">.deb</code> and <code class="inline">.exe</code> are built and attached automatically by <a href="https://github.com/sayedshaun/localtex/blob/main/.github/workflows/release.yml" target="_blank" rel="noopener">a GitHub Actions workflow</a>, not hand-uploaded.</div>
+      <div class="note"><strong>Note —</strong> the <code class="inline">.deb</code> and <code class="inline">.exe</code> for each release are built and published automatically by a <a href="https://github.com/sayedshaun/localtex/blob/main/.github/workflows/release.yml" target="_blank" rel="noopener">GitHub Actions workflow</a>, so what you download always matches the tagged source.</div>
     </section>
 
     <section class="doc" id="uninstall">
@@ -672,33 +665,6 @@ rm -f ~/.local/bin/tectonic</code></pre>
       </div>
       <h3>Windows</h3>
       <p>Uninstall LocalTeX from Windows Settings → Apps, same as any other app. It won't touch your <code class="inline">LocalTeX-Projects</code> folder or your Tectonic install.</p>
-    </section>
-
-    <section class="doc" id="architecture">
-      <h2>Architecture</h2>
-      <p class="dek">How the pieces fit together — a React renderer talking to an Electron main process over IPC.</p>
-      <div class="code-panel tree-panel">
-        <div class="code-bar"><span>project layout</span><button class="copy-btn" data-copy>Copy</button></div>
-        <pre><code>src/                     <span class="tree-line-comment"># React frontend</span>
-  components/
-    Home.tsx              <span class="tree-line-comment"># Multi-project dashboard</span>
-    Editor.tsx            <span class="tree-line-comment"># CodeMirror-based LaTeX editor</span>
-    Terminal.tsx          <span class="tree-line-comment"># xterm.js wired to the PTY backend</span>
-    PdfPreview.tsx         <span class="tree-line-comment"># pdf.js viewer, zoom + SyncTeX</span>
-    FileTree.tsx           <span class="tree-line-comment"># Overleaf-style file browser</span>
-    SearchPanel.tsx         <span class="tree-line-comment"># Project-wide text search</span>
-    OutlinePanel.tsx        <span class="tree-line-comment"># Document outline</span>
-    SymbolToolbar.tsx       <span class="tree-line-comment"># Bold/italic/math/list toolbar</span>
-    MenuBar.tsx             <span class="tree-line-comment"># File/Edit/Insert/View/Theme</span>
-    SplitPane.tsx           <span class="tree-line-comment"># Draggable divider</span>
-  themes.ts                 <span class="tree-line-comment"># Editor/terminal/chrome theme defs</span>
-  electron-api.d.ts        <span class="tree-line-comment"># Type decls for window.api (IPC)</span>
-electron/                <span class="tree-line-comment"># Electron main process</span>
-  main.cjs                 <span class="tree-line-comment"># Window + all IPC handlers</span>
-  preload.cjs               <span class="tree-line-comment"># contextBridge exposing window.api</span>
-install.sh               <span class="tree-line-comment"># One-command installer</span>
-uninstall.sh              <span class="tree-line-comment"># One-command uninstaller</span></code></pre>
-      </div>
     </section>
 
     <section class="doc" id="contributing">
@@ -722,11 +688,6 @@ git push origin v0.1.1</code></pre>
       </div>
     </section>
 
-    <section class="doc" id="license">
-      <h2>License</h2>
-      <p>MIT © 2026 <a href="https://github.com/sayedshaun" target="_blank" rel="noopener">Sayed Shaun</a>.</p>
-    </section>
-
     <footer>
       <span>LocalTeX — a local-first LaTeX IDE.</span>
       <span>Built with Electron, CodeMirror, and Tectonic.</span>
@@ -740,9 +701,7 @@ git push origin v0.1.1</code></pre>
       <li><a href="#features">Features</a></li>
       <li><a href="#install">Install</a></li>
       <li><a href="#uninstall">Uninstall</a></li>
-      <li><a href="#architecture">Architecture</a></li>
       <li><a href="#contributing">Contributing</a></li>
-      <li><a href="#license">License</a></li>
     </ul>
   </nav>
 </div>

@@ -11,9 +11,9 @@ cloud, no account, no multi-gigabyte TeX Live install.
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Built with Electron](https://img.shields.io/badge/built%20with-Electron-47848F?logo=electron&logoColor=white)](https://electronjs.org)
-[![Platform: Linux](https://img.shields.io/badge/platform-Linux-orange?logo=linux&logoColor=white)](#install)
+[![Platform: Linux | Windows](https://img.shields.io/badge/platform-Linux%20%7C%20Windows-orange?logo=linux&logoColor=white)](#install)
 
-[Install](#-install) · [Features](#-features) · [Uninstall](#-uninstall) · [Contributing](CONTRIBUTING.md)
+[Docs](https://sayedshaun.github.io/localtex/) · [Install](#-install) · [Features](#-features) · [Uninstall](#-uninstall) · [Contributing](CONTRIBUTING.md)
 
 </div>
 
@@ -49,9 +49,9 @@ your machine.
 
 ## 🚀 Install
 
-> Debian/Ubuntu-based Linux (apt-based) only, for now.
+> Debian/Ubuntu-based Linux (apt-based) and Windows 10/11 are supported.
 
-### Option A — prebuilt `.deb` (no Node/npm required)
+### Linux
 
 Grab the latest `.deb` from [Releases](https://github.com/sayedshaun/localtex/releases/latest)
 and install it:
@@ -68,42 +68,41 @@ on `PATH` to actually compile documents, if you don't have it already:
 curl -fsSL https://drop-sh.fullyjustified.net | sh   # installs tectonic to ~/.local/bin
 ```
 
-Every tagged release is built and attached automatically by
-[`.github/workflows/release.yml`](.github/workflows/release.yml) — the `.deb`
-you download there is the exact same artifact `install.sh` builds locally,
-just pre-built so you don't need Node.js on your machine at all.
+### Windows
 
-### Option B — build from source
+Grab `localtex-setup.exe` from [Releases](https://github.com/sayedshaun/localtex/releases/latest)
+and run it.
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/sayedshaun/localtex/main/install.sh | bash
-```
+You'll also need [Tectonic](https://tectonic-typesetting.github.io/en-US/install.html)
+on `PATH` to actually compile documents — grab the Windows binary from their
+[install page](https://tectonic-typesetting.github.io/en-US/install.html) and
+make sure it's on your `PATH`.
 
-That one line installs Node.js build deps and Tectonic, downloads the
-Electron runtime, builds LocalTeX, and installs the resulting `.deb`
-system-wide. When it's done, launch **LocalTeX** from your application
-menu, or run `localtex` from a terminal.
-
-<details>
-<summary>Prefer to inspect the script first, or already have the source checked out?</summary>
-
-```bash
-git clone https://github.com/sayedshaun/localtex.git
-cd localtex
-./install.sh
-```
-
-</details>
+(Every tagged release's `.deb` and `.exe` are built and attached automatically
+by [`.github/workflows/release.yml`](.github/workflows/release.yml).)
 
 ## 🗑️ Uninstall
 
+**Linux**
+
 ```bash
-curl -fsSL https://raw.githubusercontent.com/sayedshaun/localtex/main/uninstall.sh | bash
+sudo apt remove localtex
 ```
 
-Removes the `localtex` package. It'll ask before touching your
-`~/LocalTeX-Projects` project files, and only removes the `tectonic`
-binary if `install.sh` was the one that put it there.
+This only removes the `localtex` package. It won't touch your
+`~/LocalTeX-Projects` project files or the standalone `tectonic` binary —
+remove those yourself if you no longer need them:
+
+```bash
+rm -rf ~/LocalTeX-Projects
+rm -f ~/.local/bin/tectonic
+```
+
+**Windows**
+
+Uninstall LocalTeX from Windows Settings → Apps, same as any other app. It
+won't touch your `LocalTeX-Projects` folder or your Tectonic install —
+remove those yourself if you no longer need them.
 
 ## 🤝 Contributing
 
@@ -113,4 +112,4 @@ instructions, and project layout.
 
 ## 📄 License
 
-[MIT](LICENSE)
+MIT © 2026 [Sayed Shaun](https://github.com/sayedshaun) — see [LICENSE](LICENSE) for the full text.

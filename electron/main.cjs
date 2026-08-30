@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog } = require("electron");
+const { app, BrowserWindow, ipcMain, dialog, Menu } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const { execFile } = require("child_process");
@@ -7,6 +7,27 @@ const zlib = require("zlib");
 const pty = require("node-pty");
 
 const isDev = !app.isPackaged;
+
+/** Escape a string for embedding as a single-quoted PowerShell literal. */
+function psQuote(str) {
+  return "'" + String(str).replace(/'/g, "''") + "'";
+}
+
+/** Run a PowerShell script (Windows only) and resolve with its stdout. */
+function runPowerShell(script) {
+  const encoded = Buffer.from(script, "utf16le").toString("base64");
+  return new Promise((resolve, reject) => {
+    execFile(
+      "powershell.exe",
+      ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-EncodedCommand", encoded],
+      { maxBuffer: 16 * 1024 * 1024 },
+      (error, stdout, stderr) => {
+        if (error) reject(new Error(stderr || error.message));
+        else resolve(stdout || "");
+      },
+    );
+  });
+}
 
 const STARTER_TEX = `\\documentclass{article}
 \\title{New Document}
@@ -100,6 +121,7 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  Menu.setApplicationMenu(null);
   createWindow();
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -188,15 +210,21 @@ ipcMain.handle("export-project", async (_e, dir, projectName) => {
   });
   if (result.canceled || !result.filePath) return null;
 
-  await new Promise((resolve, reject) => {
-    // Zip the project's *contents* (not the folder itself) so main.tex sits
-    // at the archive root — the layout Overleaf's own project zips use, and
-    // what its "Upload Project" importer expects.
-    execFile("zip", ["-r", result.filePath, "."], { cwd: dir }, (error) => {
-      if (error) reject(error);
-      else resolve();
+  // Zip the project's *contents* (not the folder itself) so main.tex sits at
+  // the archive root — the layout Overleaf's own project zips use, and what
+  // its "Upload Project" importer expects.
+  if (process.platform === "win32") {
+    await runPowerShell(
+      `Compress-Archive -Path (Join-Path ${psQuote(dir)} '*') -DestinationPath ${psQuote(result.filePath)} -Force`,
+    );
+  } else {
+    await new Promise((resolve, reject) => {
+      execFile("zip", ["-r", result.filePath, "."], { cwd: dir }, (error) => {
+        if (error) reject(error);
+        else resolve();
+      });
     });
-  });
+  }
   return result.filePath;
 });
 
@@ -228,16 +256,25 @@ ipcMain.handle("import-project-zip", async (_e, zipPath, name) => {
     //    straight through to the target.
     //
     // unzip has no per-entry exclude for symlinks, so list first and refuse.
-    const listing = await new Promise((resolve, reject) => {
-      execFile(
-        "unzip",
-        // -Z1 lists bare entry names. Note `-l` would override `-1` and give
-        // the verbose listing instead, which no longer matches the `.git` test.
-        ["-Z1", zipPath],
-        { maxBuffer: 8 * 1024 * 1024 },
-        (error, stdout) => (error ? reject(error) : resolve(stdout || "")),
+    let listing;
+    if (process.platform === "win32") {
+      listing = await runPowerShell(
+        `Add-Type -AssemblyName System.IO.Compression.FileSystem; ` +
+          `$zip = [System.IO.Compression.ZipFile]::OpenRead(${psQuote(zipPath)}); ` +
+          `try { $zip.Entries | ForEach-Object { $_.FullName } } finally { $zip.Dispose() }`,
       );
-    });
+    } else {
+      listing = await new Promise((resolve, reject) => {
+        execFile(
+          "unzip",
+          // -Z1 lists bare entry names. Note `-l` would override `-1` and give
+          // the verbose listing instead, which no longer matches the `.git` test.
+          ["-Z1", zipPath],
+          { maxBuffer: 8 * 1024 * 1024 },
+          (error, stdout) => (error ? reject(error) : resolve(stdout || "")),
+        );
+      });
+    }
     const entries = listing.split("\n").map((l) => l.trim()).filter(Boolean);
     const gitEntry = entries.find(
       (e) => e === ".git" || e.startsWith(".git/") || e.includes("/.git/"),
@@ -250,13 +287,23 @@ ipcMain.handle("import-project-zip", async (_e, zipPath, name) => {
       );
     }
 
-    await new Promise((resolve, reject) => {
-      // -X so unzip does not restore ownership/permission extras.
-      execFile("unzip", ["-o", "-X", zipPath, "-d", dir], (error) => {
-        if (error) reject(error);
-        else resolve();
+    if (process.platform === "win32") {
+      // Expand-Archive does not restore Unix-style symlinks as real
+      // filesystem symlinks, so the follow-up findSymlink check below is
+      // defense in depth here rather than the primary guard it is on
+      // unix, where -X still defers real symlink creation to unzip itself.
+      await runPowerShell(
+        `Expand-Archive -Path ${psQuote(zipPath)} -DestinationPath ${psQuote(dir)} -Force`,
+      );
+    } else {
+      await new Promise((resolve, reject) => {
+        // -X so unzip does not restore ownership/permission extras.
+        execFile("unzip", ["-o", "-X", zipPath, "-d", dir], (error) => {
+          if (error) reject(error);
+          else resolve();
+        });
       });
-    });
+    }
 
     // unzip defers symlink creation to the end of extraction, so check after.
     const symlink = findSymlink(dir, dir);
@@ -479,7 +526,7 @@ const GIT_SAFE_FLAGS = [
   "-c",
   "core.fsmonitor=",
   "-c",
-  "core.hooksPath=/dev/null",
+  `core.hooksPath=${process.platform === "win32" ? "NUL" : "/dev/null"}`,
   "-c",
   "protocol.ext.allow=never",
 ];
@@ -982,7 +1029,10 @@ ipcMain.handle("sync-reverse", (_e, texPath, page, xPt, yPt) => {
 const ptySessions = new Map();
 
 ipcMain.handle("pty-spawn", (event, { cols, rows, cwd }) => {
-  const shell = process.env.SHELL || "/bin/bash";
+  const shell =
+    process.platform === "win32"
+      ? process.env.COMSPEC || "powershell.exe"
+      : process.env.SHELL || "/bin/bash";
   const id = crypto.randomUUID();
   const ptyProcess = pty.spawn(shell, [], {
     name: "xterm-256color",

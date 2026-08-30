@@ -614,6 +614,7 @@ export default function App() {
           <>
             <button className="toolbar-logo" onClick={goHome} title="Back to All Projects">
               <img src={logoIcon} alt="" width="18" height="18" />
+              <span className="toolbar-logo-label">All Projects</span>
             </button>
             <MenuBar menus={menus} />
             <div className="menu-dropdown">

@@ -1,8 +1,8 @@
 name: Release
 
-# Builds the .deb and attaches it to a GitHub Release, so users without
-# Node/npm can just download and install — no build step required on their
-# end. Triggers on:
+# Builds the .deb (Linux) and installer .exe (Windows) and attaches them to
+# a GitHub Release, so users without Node/npm can just download and install
+# — no build step required on their end. Triggers on:
 #   - pushing a version tag (v1.2.3) — action-gh-release then creates the
 #     Release itself, so a plain `git push --tags` is enough on its own.
 #   - publishing a Release through the GitHub UI, whether it's for a brand
@@ -58,6 +58,48 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: localtex-deb
+          path: ${{ steps.artifact.outputs.path }}
+
+      - name: Publish release (tag pushes and release publishes)
+        if: github.event_name == 'push' || github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.artifact.outputs.path }}
+          generate_release_notes: true
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Windows installer
+        run: npm run electron:build
+
+      - name: Locate build artifact
+        id: artifact
+        shell: bash
+        run: |
+          exe_path=$(find dist-electron -maxdepth 1 -name '*.exe' | head -n1)
+          if [ -z "$exe_path" ]; then
+            echo "no .exe found under dist-electron/" >&2
+            exit 1
+          fi
+          echo "path=$exe_path" >> "$GITHUB_OUTPUT"
+
+      - name: Upload build artifact (workflow_dispatch runs)
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: localtex-windows
           path: ${{ steps.artifact.outputs.path }}
 
       - name: Publish release (tag pushes and release publishes)

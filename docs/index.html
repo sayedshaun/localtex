@@ -1,0 +1,824 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LocalTeX Docs</title>
+<meta name="description" content="Documentation for LocalTeX, a local-first LaTeX IDE — overview, features, install/uninstall, architecture, and contributing.">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=STIX+Two+Text:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --paper: #eef0ed;
+    --paper-raised: #ffffff;
+    --paper-sunken: #e3e6e1;
+    --ink: #171b21;
+    --ink-soft: #5b6470;
+    --ink-faint: #8991a0;
+    --border: rgba(23, 27, 33, 0.12);
+    --accent: #14764f;
+    --accent-ink: #ffffff;
+    --command: #a2650a;
+    --code-bg: #14181f;
+    --code-ink: #e7e9ec;
+    --code-border: rgba(255, 255, 255, 0.08);
+    --shadow: 0 1px 2px rgba(23, 27, 33, 0.04), 0 8px 24px rgba(23, 27, 33, 0.06);
+    --radius: 10px;
+    --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --serif: "STIX Two Text", Georgia, "Times New Roman", serif;
+    --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Consolas, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #14171c;
+      --paper-raised: #1b1f26;
+      --paper-sunken: #0f1216;
+      --ink: #e7e9ec;
+      --ink-soft: #9aa3ae;
+      --ink-faint: #6b7480;
+      --border: rgba(231, 233, 236, 0.1);
+      --accent: #3ecf94;
+      --accent-ink: #0b1210;
+      --command: #e3a63e;
+      --code-bg: #0f1216;
+      --code-ink: #e7e9ec;
+      --code-border: rgba(255, 255, 255, 0.07);
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.35);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper: #14171c;
+    --paper-raised: #1b1f26;
+    --paper-sunken: #0f1216;
+    --ink: #e7e9ec;
+    --ink-soft: #9aa3ae;
+    --ink-faint: #6b7480;
+    --border: rgba(231, 233, 236, 0.1);
+    --accent: #3ecf94;
+    --accent-ink: #0b1210;
+    --command: #e3a63e;
+    --code-bg: #0f1216;
+    --code-ink: #e7e9ec;
+    --code-border: rgba(255, 255, 255, 0.07);
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.35);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  a:focus-visible, button:focus-visible, summary:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  h1, h2, h3 {
+    font-family: var(--serif);
+    font-weight: 600;
+    text-wrap: balance;
+    color: var(--ink);
+  }
+
+  code, pre, kbd {
+    font-family: var(--mono);
+  }
+
+  /* ---------- header ---------- */
+
+  .site-header {
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    height: 56px;
+    padding: 0 20px;
+    background: color-mix(in srgb, var(--paper) 88%, transparent);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .site-header img { width: 26px; height: 26px; display: block; border-radius: 6px; }
+
+  .site-header .wordmark {
+    font-family: var(--serif);
+    font-weight: 600;
+    font-size: 18px;
+    letter-spacing: 0.01em;
+  }
+
+  .site-header .version {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-faint);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 2px 8px;
+  }
+
+  .site-header nav {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    font-size: 14px;
+  }
+
+  .site-header nav a { color: var(--ink-soft); }
+  .site-header nav a.gh { display: inline-flex; align-items: center; gap: 6px; color: var(--ink); }
+
+  .menu-toggle {
+    display: none;
+    margin-left: auto;
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    width: 32px;
+    height: 32px;
+    color: var(--ink);
+    cursor: pointer;
+  }
+
+  /* ---------- shell layout ---------- */
+
+  .shell {
+    display: grid;
+    grid-template-columns: 240px minmax(0, 740px) 1fr;
+    gap: 48px;
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 40px 24px 96px;
+  }
+
+  .sidebar {
+    position: sticky;
+    top: 76px;
+    align-self: start;
+    max-height: calc(100vh - 96px);
+    overflow-y: auto;
+  }
+
+  .sidebar .eyebrow {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin: 0 0 8px;
+  }
+
+  .sidebar ul { list-style: none; margin: 0 0 24px; padding: 0; }
+  .sidebar li { margin: 0; }
+
+  .sidebar a {
+    display: block;
+    padding: 6px 10px;
+    margin: 1px 0;
+    border-radius: 6px;
+    color: var(--ink-soft);
+    font-size: 14px;
+    border-left: 2px solid transparent;
+  }
+
+  .sidebar a:hover { color: var(--ink); text-decoration: none; background: var(--paper-sunken); }
+
+  .sidebar a.active {
+    color: var(--ink);
+    font-weight: 600;
+    border-left-color: var(--accent);
+    background: var(--paper-sunken);
+  }
+
+  .toc {
+    position: sticky;
+    top: 76px;
+    align-self: start;
+    font-size: 13px;
+    color: var(--ink-faint);
+  }
+
+  .toc .eyebrow {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin: 0 0 10px;
+  }
+
+  .toc ul { list-style: none; margin: 0; padding: 0; border-left: 1px solid var(--border); }
+  .toc li { margin: 0; }
+  .toc a {
+    display: block;
+    padding: 4px 0 4px 14px;
+    margin-left: -1px;
+    border-left: 1px solid transparent;
+    color: var(--ink-faint);
+  }
+  .toc a:hover { color: var(--ink); text-decoration: none; }
+  .toc a.active { color: var(--accent); border-left-color: var(--accent); }
+
+  main { min-width: 0; }
+
+  /* ---------- hero ---------- */
+
+  .hero {
+    padding: 8px 0 40px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 40px;
+  }
+
+  .hero .kicker {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--command);
+    margin: 0 0 14px;
+  }
+
+  .hero h1 {
+    font-size: clamp(32px, 4.4vw, 44px);
+    line-height: 1.12;
+    margin: 0 0 14px;
+  }
+
+  .hero p.lead {
+    font-size: 18px;
+    color: var(--ink-soft);
+    max-width: 56ch;
+    margin: 0 0 26px;
+  }
+
+  .hero-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 32px; }
+
+  .btn {
+    font-family: var(--sans);
+    font-size: 14px;
+    font-weight: 600;
+    padding: 10px 18px;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .btn:hover { text-decoration: none; }
+
+  .btn-primary { background: var(--accent); color: var(--accent-ink); }
+  .btn-primary:hover { filter: brightness(1.06); }
+
+  .btn-ghost { background: transparent; color: var(--ink); border-color: var(--border); }
+  .btn-ghost:hover { background: var(--paper-sunken); }
+
+  .hero-shot {
+    border-radius: var(--radius);
+    overflow: hidden;
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+  }
+
+  .hero-shot img { display: block; width: 100%; height: auto; }
+
+  /* ---------- sections ---------- */
+
+  section.doc { margin: 0 0 56px; scroll-margin-top: 72px; }
+  section.doc h2 { font-size: 26px; margin: 0 0 6px; scroll-margin-top: 72px; }
+  section.doc h3 { font-size: 18px; margin: 28px 0 10px; scroll-margin-top: 72px; }
+  section.doc > .dek { color: var(--ink-soft); margin: 0 0 22px; max-width: 62ch; }
+  section.doc p { margin: 0 0 16px; max-width: 68ch; }
+  section.doc p.tight { margin-bottom: 8px; }
+
+  .section-number {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--ink-faint);
+    letter-spacing: 0.06em;
+  }
+
+  /* ---------- feature grid ---------- */
+
+  .feature-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+
+  .feature {
+    background: var(--paper-raised);
+    padding: 18px 20px;
+  }
+
+  .feature h3 {
+    margin: 0 0 6px;
+    font-size: 15px;
+    font-family: var(--sans);
+    font-weight: 700;
+  }
+
+  .feature p { margin: 0; font-size: 14px; color: var(--ink-soft); }
+
+  .feature code { font-size: 12.5px; background: var(--paper-sunken); padding: 1px 5px; border-radius: 4px; }
+
+  /* ---------- install tabs ---------- */
+
+  .tabs { margin: 0 0 8px; }
+  .tab-buttons { display: flex; gap: 4px; margin-bottom: 14px; border-bottom: 1px solid var(--border); }
+
+  .tab-btn {
+    font-family: var(--mono);
+    font-size: 13px;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    padding: 8px 4px;
+    margin-right: 18px;
+    color: var(--ink-faint);
+    cursor: pointer;
+  }
+
+  .tab-btn.active { color: var(--ink); border-bottom-color: var(--accent); }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  ol.steps { margin: 0; padding: 0; list-style: none; counter-reset: step; }
+
+  ol.steps > li {
+    counter-increment: step;
+    position: relative;
+    padding-left: 34px;
+    margin-bottom: 20px;
+  }
+
+  ol.steps > li::before {
+    content: counter(step);
+    position: absolute;
+    left: 0;
+    top: 1px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--paper-sunken);
+    color: var(--ink-soft);
+    font-family: var(--mono);
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  ol.steps > li > strong { display: block; margin-bottom: 6px; font-size: 14.5px; }
+
+  /* ---------- code blocks ---------- */
+
+  .code-panel {
+    position: relative;
+    background: var(--code-bg);
+    color: var(--code-ink);
+    border: 1px solid var(--code-border);
+    border-radius: 8px;
+    margin: 0 0 16px;
+    overflow: hidden;
+  }
+
+  .code-panel .code-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 7px 12px;
+    border-bottom: 1px solid var(--code-border);
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: #8b93a0;
+    letter-spacing: 0.03em;
+  }
+
+  .code-panel pre {
+    margin: 0;
+    padding: 14px 16px;
+    overflow-x: auto;
+    font-size: 13.5px;
+    line-height: 1.6;
+  }
+
+  .code-panel .copy-btn {
+    background: none;
+    border: 1px solid var(--code-border);
+    color: #8b93a0;
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 5px;
+    cursor: pointer;
+  }
+
+  .code-panel .copy-btn:hover { color: var(--code-ink); border-color: #8b93a0; }
+
+  code.inline {
+    background: var(--paper-sunken);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.88em;
+  }
+
+  .note {
+    border-left: 3px solid var(--command);
+    background: color-mix(in srgb, var(--command) 10%, var(--paper-raised));
+    padding: 12px 16px;
+    border-radius: 0 8px 8px 0;
+    font-size: 14px;
+    margin: 0 0 20px;
+  }
+
+  .note strong { color: var(--command); }
+
+  /* ---------- project tree ---------- */
+
+  .tree-panel .code-bar span { color: #8b93a0; }
+  .tree-line-comment { color: #6f92c9; }
+
+  /* ---------- footer ---------- */
+
+  footer {
+    border-top: 1px solid var(--border);
+    padding-top: 28px;
+    margin-top: 12px;
+    font-size: 13.5px;
+    color: var(--ink-faint);
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  /* ---------- responsive ---------- */
+
+  @media (max-width: 1080px) {
+    .shell { grid-template-columns: 220px minmax(0, 1fr); }
+    .toc { display: none; }
+  }
+
+  @media (max-width: 760px) {
+    .menu-toggle { display: inline-flex; align-items: center; justify-content: center; }
+    .site-header nav.primary-links { display: none; }
+    .shell { grid-template-columns: 1fr; padding-top: 24px; }
+    .sidebar {
+      position: fixed;
+      inset: 56px 0 0 0;
+      background: var(--paper);
+      padding: 20px 24px 40px;
+      transform: translateX(-100%);
+      transition: transform 0.18s ease;
+      z-index: 30;
+      max-height: none;
+    }
+    .sidebar.open { transform: translateX(0); }
+    .feature-grid { grid-template-columns: 1fr; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sidebar { transition: none; }
+  }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <img src="icon.png" alt="" />
+  <span class="wordmark">LocalTeX</span>
+  <span class="version">v0.1.0</span>
+  <button class="menu-toggle" id="menuToggle" aria-label="Toggle navigation" aria-expanded="false">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 4h12M2 8h12M2 12h12" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+  </button>
+  <nav class="primary-links">
+    <a href="#why">Why</a>
+    <a href="#features">Features</a>
+    <a href="#install">Install</a>
+    <a href="#architecture">Architecture</a>
+    <a href="#contributing">Contributing</a>
+    <a class="gh" href="https://github.com/sayedshaun/localtex" target="_blank" rel="noopener">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8a8 8 0 0 0 5.47 7.59c.4.07.55-.17.55-.38v-1.5c-2.22.48-2.69-1.07-2.69-1.07-.36-.92-.89-1.16-.89-1.16-.72-.5.06-.49.06-.49.8.06 1.22.82 1.22.82.71 1.22 1.87.87 2.33.66.07-.52.28-.87.5-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.01.08-2.11 0 0 .67-.21 2.2.82a7.65 7.65 0 0 1 4 0c1.53-1.03 2.2-.82 2.2-.82.44 1.1.16 1.91.08 2.11.51.56.82 1.28.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48v2.2c0 .21.15.46.55.38A8 8 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
+      GitHub
+    </a>
+  </nav>
+</header>
+
+<div class="shell">
+  <aside class="sidebar" id="sidebar">
+    <p class="eyebrow">Guide</p>
+    <ul>
+      <li><a href="#why">Why LocalTeX</a></li>
+      <li><a href="#features">Features</a></li>
+      <li><a href="#install">Install</a></li>
+      <li><a href="#uninstall">Uninstall</a></li>
+      <li><a href="#architecture">Architecture</a></li>
+      <li><a href="#contributing">Contributing</a></li>
+      <li><a href="#license">License</a></li>
+    </ul>
+    <p class="eyebrow">Elsewhere</p>
+    <ul>
+      <li><a href="https://github.com/sayedshaun/localtex/releases/latest" target="_blank" rel="noopener">Releases</a></li>
+      <li><a href="https://github.com/sayedshaun/localtex/issues" target="_blank" rel="noopener">Issues</a></li>
+      <li><a href="https://tectonic-typesetting.github.io/" target="_blank" rel="noopener">Tectonic</a></li>
+    </ul>
+  </aside>
+
+  <main>
+    <div class="hero">
+      <p class="kicker">\documentclass{desktop-app}</p>
+      <h1>Overleaf's editing experience, running entirely on your own machine.</h1>
+      <p class="lead">A live LaTeX editor, a real compiler, and a real terminal — one window, no cloud, no account, no multi-gigabyte TeX Live install.</p>
+      <div class="hero-actions">
+        <a class="btn btn-primary" href="#install">Install LocalTeX</a>
+        <a class="btn btn-ghost" href="https://github.com/sayedshaun/localtex" target="_blank" rel="noopener">View source</a>
+      </div>
+      <div class="hero-shot">
+        <img src="screenshot.png" alt="LocalTeX window showing the file tree, LaTeX source with syntax highlighting, document outline, and a live PDF preview side by side" />
+      </div>
+    </div>
+
+    <section class="doc" id="why">
+      <h2>Why LocalTeX</h2>
+      <p>Overleaf is great until you need it offline, want your files to actually live on your disk, or just don't want to pay for compile priority on your own laptop. LocalTeX gives you that same editor-plus-preview workflow, backed by a real filesystem and a real shell, with nothing running outside your machine.</p>
+      <p>Every project lives under <code class="inline">~/LocalTeX-Projects</code> as plain files — <code class="inline">.tex</code>, <code class="inline">.bib</code>, images, whatever your document needs. Nothing is silently synced anywhere.</p>
+    </section>
+
+    <section class="doc" id="features">
+      <h2>Features</h2>
+      <p class="dek">Ten things it actually does, no marketing filler.</p>
+      <div class="feature-grid">
+        <div class="feature">
+          <h3>Multi-project dashboard</h3>
+          <p>An Overleaf-style home screen listing every project under <code>~/LocalTeX-Projects</code>, with search, new/delete, and .zip export/import.</p>
+        </div>
+        <div class="feature">
+          <h3>Live editor</h3>
+          <p>CodeMirror 6 with LaTeX syntax highlighting, autosave, undo/redo, find/replace, a symbol toolbar, and a document outline.</p>
+        </div>
+        <div class="feature">
+          <h3>Real compiler</h3>
+          <p><a href="https://tectonic-typesetting.github.io/" target="_blank" rel="noopener">Tectonic</a> — a self-contained LaTeX engine, so there's no multi-gigabyte TeX Live install. Errors surface inline.</p>
+        </div>
+        <div class="feature">
+          <h3>SyncTeX</h3>
+          <p>Click "Sync" to jump the PDF to your cursor's position; double-click the PDF to jump the editor back — both directions, pixel-accurate.</p>
+        </div>
+        <div class="feature">
+          <h3>Real terminal</h3>
+          <p>A genuine PTY-backed shell (<code>node-pty</code>), not a simulation. Dockable to the bottom or side, resizable.</p>
+        </div>
+        <div class="feature">
+          <h3>PDF preview</h3>
+          <p>Rendered with <code>pdf.js</code> at supersampled resolution for crisp text. Foldable, resizable split view, Ctrl+scroll zoom.</p>
+        </div>
+        <div class="feature">
+          <h3>Project-wide search</h3>
+          <p>A VS Code-style search panel — find text across every file in a project, not just the open one.</p>
+        </div>
+        <div class="feature">
+          <h3>File tree</h3>
+          <p>Overleaf-style sidebar — create, rename, drag-and-drop move, and delete via right-click or empty-space click.</p>
+        </div>
+        <div class="feature">
+          <h3>Themes</h3>
+          <p>VS Code Dark, Dracula, GNOME, and Light — covers the editor, terminal, and app chrome.</p>
+        </div>
+        <div class="feature">
+          <h3>Multilingual documents</h3>
+          <p>A bundled Bengali font plus a XeLaTeX + polyglossia starter template for mixing non-Latin scripts with Latin text.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="doc" id="install">
+      <h2>Install</h2>
+      <p class="dek">Debian/Ubuntu-based Linux (apt-based) and Windows 10/11 are supported.</p>
+
+      <div class="tabs">
+        <div class="tab-buttons" role="tablist">
+          <button class="tab-btn active" role="tab" aria-selected="true" data-tab="linux">Linux</button>
+          <button class="tab-btn" role="tab" aria-selected="false" data-tab="windows">Windows</button>
+        </div>
+
+        <div class="tab-panel active" data-panel="linux">
+          <ol class="steps">
+            <li>
+              <strong>Download and install the package</strong>
+              <div class="code-panel">
+                <div class="code-bar"><span>bash</span><button class="copy-btn" data-copy>Copy</button></div>
+                <pre><code>curl -fsSLO https://github.com/sayedshaun/localtex/releases/latest/download/localtex.deb
+sudo apt install ./localtex.deb</code></pre>
+              </div>
+            </li>
+            <li>
+              <strong>Install Tectonic</strong>
+              <p class="tight">Needed on <code class="inline">PATH</code> to actually compile documents:</p>
+              <div class="code-panel">
+                <div class="code-bar"><span>bash</span><button class="copy-btn" data-copy>Copy</button></div>
+                <pre><code>curl -fsSL https://drop-sh.fullyjustified.net | sh</code></pre>
+              </div>
+            </li>
+          </ol>
+          <p>Launch <strong>LocalTeX</strong> from your application menu, or run <code class="inline">localtex</code> from a terminal.</p>
+        </div>
+
+        <div class="tab-panel" data-panel="windows">
+          <ol class="steps">
+            <li>
+              <strong>Download and run the installer</strong>
+              <p class="tight">Grab <code class="inline">localtex-setup.exe</code> from <a href="https://github.com/sayedshaun/localtex/releases/latest" target="_blank" rel="noopener">Releases</a> and run it.</p>
+            </li>
+            <li>
+              <strong>Install Tectonic</strong>
+              <p class="tight">Needed on <code class="inline">PATH</code> to actually compile documents — grab the Windows build from the <a href="https://tectonic-typesetting.github.io/en-US/install.html" target="_blank" rel="noopener">Tectonic install page</a>.</p>
+            </li>
+          </ol>
+        </div>
+      </div>
+
+      <div class="note"><strong>Note —</strong> every tagged release's <code class="inline">.deb</code> and <code class="inline">.exe</code> are built and attached automatically by <a href="https://github.com/sayedshaun/localtex/blob/main/.github/workflows/release.yml" target="_blank" rel="noopener">a GitHub Actions workflow</a>, not hand-uploaded.</div>
+    </section>
+
+    <section class="doc" id="uninstall">
+      <h2>Uninstall</h2>
+      <h3>Linux</h3>
+      <div class="code-panel">
+        <div class="code-bar"><span>bash</span><button class="copy-btn" data-copy>Copy</button></div>
+        <pre><code>sudo apt remove localtex</code></pre>
+      </div>
+      <p>This only removes the <code class="inline">localtex</code> package. It won't touch your <code class="inline">~/LocalTeX-Projects</code> files or the standalone <code class="inline">tectonic</code> binary — remove those yourself if you no longer need them:</p>
+      <div class="code-panel">
+        <div class="code-bar"><span>bash</span><button class="copy-btn" data-copy>Copy</button></div>
+        <pre><code>rm -rf ~/LocalTeX-Projects
+rm -f ~/.local/bin/tectonic</code></pre>
+      </div>
+      <h3>Windows</h3>
+      <p>Uninstall LocalTeX from Windows Settings → Apps, same as any other app. It won't touch your <code class="inline">LocalTeX-Projects</code> folder or your Tectonic install.</p>
+    </section>
+
+    <section class="doc" id="architecture">
+      <h2>Architecture</h2>
+      <p class="dek">How the pieces fit together — a React renderer talking to an Electron main process over IPC.</p>
+      <div class="code-panel tree-panel">
+        <div class="code-bar"><span>project layout</span><button class="copy-btn" data-copy>Copy</button></div>
+        <pre><code>src/                     <span class="tree-line-comment"># React frontend</span>
+  components/
+    Home.tsx              <span class="tree-line-comment"># Multi-project dashboard</span>
+    Editor.tsx            <span class="tree-line-comment"># CodeMirror-based LaTeX editor</span>
+    Terminal.tsx          <span class="tree-line-comment"># xterm.js wired to the PTY backend</span>
+    PdfPreview.tsx         <span class="tree-line-comment"># pdf.js viewer, zoom + SyncTeX</span>
+    FileTree.tsx           <span class="tree-line-comment"># Overleaf-style file browser</span>
+    SearchPanel.tsx         <span class="tree-line-comment"># Project-wide text search</span>
+    OutlinePanel.tsx        <span class="tree-line-comment"># Document outline</span>
+    SymbolToolbar.tsx       <span class="tree-line-comment"># Bold/italic/math/list toolbar</span>
+    MenuBar.tsx             <span class="tree-line-comment"># File/Edit/Insert/View/Theme</span>
+    SplitPane.tsx           <span class="tree-line-comment"># Draggable divider</span>
+  themes.ts                 <span class="tree-line-comment"># Editor/terminal/chrome theme defs</span>
+  electron-api.d.ts        <span class="tree-line-comment"># Type decls for window.api (IPC)</span>
+electron/                <span class="tree-line-comment"># Electron main process</span>
+  main.cjs                 <span class="tree-line-comment"># Window + all IPC handlers</span>
+  preload.cjs               <span class="tree-line-comment"># contextBridge exposing window.api</span>
+install.sh               <span class="tree-line-comment"># One-command installer</span>
+uninstall.sh              <span class="tree-line-comment"># One-command uninstaller</span></code></pre>
+      </div>
+    </section>
+
+    <section class="doc" id="contributing">
+      <h2>Contributing</h2>
+      <p class="dek">Issues and pull requests are welcome.</p>
+      <h3>Development</h3>
+      <div class="code-panel">
+        <div class="code-bar"><span>bash</span><button class="copy-btn" data-copy>Copy</button></div>
+        <pre><code>npm install
+npm run electron:dev</code></pre>
+      </div>
+      <p><code class="inline">npm install</code> downloads the Electron runtime itself on first run (a prebuilt Chromium/Node binary, fetched from GitHub) — make sure you're online.</p>
+      <h3>Requirements</h3>
+      <p>Node.js 18+, <code class="inline">build-essential</code> (Linux build deps), and <a href="https://tectonic-typesetting.github.io/" target="_blank" rel="noopener">Tectonic</a> on <code class="inline">PATH</code>. <code class="inline">install.sh</code> sets all of this up automatically.</p>
+      <h3>Releasing</h3>
+      <p>Pushing a tag matching <code class="inline">v*.*.*</code> triggers CI, which builds the <code class="inline">.deb</code> and <code class="inline">.exe</code> and attaches them to the release:</p>
+      <div class="code-panel">
+        <div class="code-bar"><span>bash</span><button class="copy-btn" data-copy>Copy</button></div>
+        <pre><code>git tag v0.1.1
+git push origin v0.1.1</code></pre>
+      </div>
+    </section>
+
+    <section class="doc" id="license">
+      <h2>License</h2>
+      <p>MIT © 2026 <a href="https://github.com/sayedshaun" target="_blank" rel="noopener">Sayed Shaun</a>.</p>
+    </section>
+
+    <footer>
+      <span>LocalTeX — a local-first LaTeX IDE.</span>
+      <span>Built with Electron, CodeMirror, and Tectonic.</span>
+    </footer>
+  </main>
+
+  <nav class="toc" aria-label="On this page">
+    <p class="eyebrow">On this page</p>
+    <ul id="tocList">
+      <li><a href="#why">Why LocalTeX</a></li>
+      <li><a href="#features">Features</a></li>
+      <li><a href="#install">Install</a></li>
+      <li><a href="#uninstall">Uninstall</a></li>
+      <li><a href="#architecture">Architecture</a></li>
+      <li><a href="#contributing">Contributing</a></li>
+      <li><a href="#license">License</a></li>
+    </ul>
+  </nav>
+</div>
+
+<script>
+  // install tabs
+  document.querySelectorAll(".tab-btn").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var group = btn.closest(".tabs");
+      group.querySelectorAll(".tab-btn").forEach(function (b) {
+        b.classList.remove("active");
+        b.setAttribute("aria-selected", "false");
+      });
+      group.querySelectorAll(".tab-panel").forEach(function (p) { p.classList.remove("active"); });
+      btn.classList.add("active");
+      btn.setAttribute("aria-selected", "true");
+      group.querySelector('.tab-panel[data-panel="' + btn.dataset.tab + '"]').classList.add("active");
+    });
+  });
+
+  // copy buttons
+  document.querySelectorAll("[data-copy]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var code = btn.closest(".code-panel").querySelector("pre code").innerText;
+      var done = function () {
+        var original = btn.textContent;
+        btn.textContent = "Copied";
+        setTimeout(function () { btn.textContent = original; }, 1400);
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(code).then(done).catch(done);
+      } else {
+        done();
+      }
+    });
+  });
+
+  // mobile sidebar toggle
+  var menuToggle = document.getElementById("menuToggle");
+  var sidebar = document.getElementById("sidebar");
+  if (menuToggle && sidebar) {
+    menuToggle.addEventListener("click", function () {
+      var open = sidebar.classList.toggle("open");
+      menuToggle.setAttribute("aria-expanded", String(open));
+    });
+    sidebar.querySelectorAll("a").forEach(function (a) {
+      a.addEventListener("click", function () {
+        sidebar.classList.remove("open");
+        menuToggle.setAttribute("aria-expanded", "false");
+      });
+    });
+  }
+
+  // scrollspy for sidebar + toc
+  try {
+    var sections = Array.prototype.slice.call(document.querySelectorAll("section.doc[id]"));
+    var sidebarLinks = document.querySelectorAll(".sidebar a[href^='#']");
+    var tocLinks = document.querySelectorAll(".toc a[href^='#']");
+    var setActive = function (id) {
+      sidebarLinks.forEach(function (a) {
+        a.classList.toggle("active", a.getAttribute("href") === "#" + id);
+      });
+      tocLinks.forEach(function (a) {
+        a.classList.toggle("active", a.getAttribute("href") === "#" + id);
+      });
+    };
+    var observer = new IntersectionObserver(
+      function (entries) {
+        entries.forEach(function (entry) {
+          if (entry.isIntersecting) setActive(entry.target.id);
+        });
+      },
+      { rootMargin: "-15% 0px -70% 0px", threshold: 0 },
+    );
+    sections.forEach(function (s) { observer.observe(s); });
+  } catch (e) {}
+</script>
+</body>
+</html>

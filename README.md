@@ -9,7 +9,7 @@
 A live LaTeX editor, a real compiler, and a real terminal — one window, no
 cloud, no account, no multi-gigabyte TeX Live install.
 
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![License: PolyForm Shield 1.0.0](https://img.shields.io/badge/license-PolyForm%20Shield%201.0.0-blue.svg)](LICENSE)
 [![Built with Electron](https://img.shields.io/badge/built%20with-Electron-47848F?logo=electron&logoColor=white)](https://electronjs.org)
 [![Platform: Linux | Windows](https://img.shields.io/badge/platform-Linux%20%7C%20Windows-orange?logo=linux&logoColor=white)](#install)
 [![Docs](https://img.shields.io/badge/docs-sayedshaun.github.io%2Flocaltex-6a3fc7)](https://sayedshaun.github.io/localtex/)
@@ -113,4 +113,4 @@ instructions, and project layout.
 
 ## 📄 License
 
-MIT © 2026 [Sayed Shaun](https://github.com/sayedshaun) — see [LICENSE](LICENSE) for the full text.
+PolyForm Shield 1.0.0 © 2026 [Sayed Shaun](https://github.com/sayedshaun) — free to use and modify, but no one may sell it or offer a competing product/service built on it. See [LICENSE](LICENSE) for the full text.

@@ -2,6 +2,10 @@
 
 This is an open-source project — issues and pull requests are welcome.
 
+By submitting a pull request, you agree to license your contribution under
+the project's [LICENSE](LICENSE) and grant the maintainer ([Sayed Shaun](https://github.com/sayedshaun))
+the right to relicense your contribution, including for commercial use.
+
 ## 🛠️ Development
 
 ```bash

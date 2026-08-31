@@ -58,7 +58,7 @@
         "deb"
       ],
       "category": "Development",
-      "icon": "build/icon.png",
+      "icon": "build/icons",
       "artifactName": "localtex.${ext}"
     },
     "win": {

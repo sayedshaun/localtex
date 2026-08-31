@@ -58,7 +58,7 @@ Grab the latest `.deb` from [Releases](https://github.com/sayedshaun/localtex/re
 and install it:
 
 ```bash
-curl -fsSLO https://github.com/sayedshaun/localtex/releases/latest/download/localtex.deb
+curl -fSLO https://github.com/sayedshaun/localtex/releases/latest/download/localtex.deb
 sudo apt install ./localtex.deb
 ```
 

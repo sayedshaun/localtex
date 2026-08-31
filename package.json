@@ -68,6 +68,18 @@
       "icon": "build/icon.png",
       "artifactName": "localtex-setup.${ext}"
     },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "category": "public.app-category.developer-tools",
+      "icon": "build/icon.png",
+      "artifactName": "localtex.${ext}",
+      "identity": null
+    },
+    "dmg": {
+      "artifactName": "localtex.${ext}"
+    },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true

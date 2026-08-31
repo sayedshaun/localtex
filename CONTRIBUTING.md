@@ -26,7 +26,7 @@ npm run electron:build
 **Requirements:**
 
 - Node.js 18+
-- `build-essential` (Linux build deps)
+- `build-essential` (Linux build deps) or Xcode Command Line Tools (macOS)
 - [Tectonic](https://tectonic-typesetting.github.io/) on `PATH`
 
 `install.sh` sets all of this up automatically — you only need the above

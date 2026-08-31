@@ -11,7 +11,7 @@ cloud, no account, no multi-gigabyte TeX Live install.
 
 [![License: PolyForm Shield 1.0.0](https://img.shields.io/badge/license-PolyForm%20Shield%201.0.0-blue.svg)](LICENSE)
 [![Built with Electron](https://img.shields.io/badge/built%20with-Electron-47848F?logo=electron&logoColor=white)](https://electronjs.org)
-[![Platform: Linux | Windows](https://img.shields.io/badge/platform-Linux%20%7C%20Windows-orange?logo=linux&logoColor=white)](#install)
+[![Platform: Linux | Windows | macOS](https://img.shields.io/badge/platform-Linux%20%7C%20Windows%20%7C%20macOS-orange?logo=linux&logoColor=white)](#install)
 [![Docs](https://img.shields.io/badge/docs-sayedshaun.github.io%2Flocaltex-6a3fc7)](https://sayedshaun.github.io/localtex/)
 
 [Docs](https://sayedshaun.github.io/localtex/) · [Install](#-install) · [Features](#-features) · [Uninstall](#-uninstall) · [Contributing](CONTRIBUTING.md)
@@ -50,7 +50,7 @@ your machine.
 
 ## 🚀 Install
 
-> Debian/Ubuntu-based Linux (apt-based) and Windows 10/11 are supported.
+> Debian/Ubuntu-based Linux (apt-based), Windows 10/11, and macOS are supported.
 
 ### Linux
 
@@ -79,8 +79,31 @@ on `PATH` to actually compile documents — grab the Windows binary from their
 [install page](https://tectonic-typesetting.github.io/en-US/install.html) and
 make sure it's on your `PATH`.
 
-(Every tagged release's `.deb` and `.exe` are built and attached automatically
-by [`.github/workflows/release.yml`](.github/workflows/release.yml).)
+### macOS
+
+Grab `localtex.dmg` from [Releases](https://github.com/sayedshaun/localtex/releases/latest),
+open it, and drag **LocalTeX** into your **Applications** folder.
+
+The app isn't notarized/signed with an Apple Developer certificate, so
+Gatekeeper will refuse to open it on first launch. Right-click the app in
+**Applications** and choose **Open** (instead of double-clicking) to bypass
+that once, or clear the quarantine flag from a terminal:
+
+```bash
+xattr -cr /Applications/LocalTeX.app
+```
+
+You'll also need [Tectonic](https://tectonic-typesetting.github.io/en-US/install.html)
+on `PATH` to actually compile documents:
+
+```bash
+brew install tectonic
+# or
+curl -fsSL https://drop-sh.fullyjustified.net | sh   # installs tectonic to ~/.local/bin
+```
+
+(Every tagged release's `.deb`, `.exe`, and `.dmg` are built and attached
+automatically by [`.github/workflows/release.yml`](.github/workflows/release.yml).)
 
 ## 🗑️ Uninstall
 
@@ -104,6 +127,17 @@ rm -f ~/.local/bin/tectonic
 Uninstall LocalTeX from Windows Settings → Apps, same as any other app. It
 won't touch your `LocalTeX-Projects` folder or your Tectonic install —
 remove those yourself if you no longer need them.
+
+**macOS**
+
+Drag **LocalTeX** from **Applications** to the Trash. It won't touch your
+`~/LocalTeX-Projects` files or your Tectonic install — remove those
+yourself if you no longer need them:
+
+```bash
+rm -rf ~/LocalTeX-Projects
+brew uninstall tectonic   # or: rm -f ~/.local/bin/tectonic
+```
 
 ## 🤝 Contributing
 

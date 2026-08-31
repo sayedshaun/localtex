@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>LocalTeX Docs</title>
-<meta name="description" content="Documentation for LocalTeX, a local-first LaTeX IDE — overview, features, install/uninstall, and contributing.">
+<meta name="description" content="LocalTeX — a local-first LaTeX editor for your desktop. What it does, and how to install it on Linux, Windows, or macOS.">
 <link rel="icon" type="image/png" href="favicon.png">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=STIX+Two+Text:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <style>
@@ -507,7 +507,6 @@
     <a href="#why">Why</a>
     <a href="#features">Features</a>
     <a href="#install">Install</a>
-    <a href="#contributing">Contributing</a>
     <a class="gh" href="https://github.com/sayedshaun/localtex" target="_blank" rel="noopener">
       <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8a8 8 0 0 0 5.47 7.59c.4.07.55-.17.55-.38v-1.5c-2.22.48-2.69-1.07-2.69-1.07-.36-.92-.89-1.16-.89-1.16-.72-.5.06-.49.06-.49.8.06 1.22.82 1.22.82.71 1.22 1.87.87 2.33.66.07-.52.28-.87.5-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.01.08-2.11 0 0 .67-.21 2.2.82a7.65 7.65 0 0 1 4 0c1.53-1.03 2.2-.82 2.2-.82.44 1.1.16 1.91.08 2.11.51.56.82 1.28.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48v2.2c0 .21.15.46.55.38A8 8 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
       GitHub
@@ -523,13 +522,12 @@
       <li><a href="#features">Features</a></li>
       <li><a href="#install">Install</a></li>
       <li><a href="#uninstall">Uninstall</a></li>
-      <li><a href="#contributing">Contributing</a></li>
     </ul>
     <p class="eyebrow">Elsewhere</p>
     <ul>
-      <li><a href="https://github.com/sayedshaun/localtex/releases/latest" target="_blank" rel="noopener">Releases</a></li>
-      <li><a href="https://github.com/sayedshaun/localtex/issues" target="_blank" rel="noopener">Issues</a></li>
-      <li><a href="https://tectonic-typesetting.github.io/" target="_blank" rel="noopener">Tectonic</a></li>
+      <li><a href="https://github.com/sayedshaun/localtex/releases/latest" target="_blank" rel="noopener">Downloads</a></li>
+      <li><a href="https://github.com/sayedshaun/localtex/issues" target="_blank" rel="noopener">Report a problem</a></li>
+      <li><a href="https://github.com/sayedshaun/localtex" target="_blank" rel="noopener">Source code</a></li>
     </ul>
   </aside>
 
@@ -541,7 +539,6 @@
       <div class="hero-actions">
         <a class="btn btn-primary" href="https://github.com/sayedshaun/localtex/releases/latest" target="_blank" rel="noopener">Download</a>
         <a class="btn btn-ghost" href="#install">Install instructions</a>
-        <a class="btn btn-ghost" href="https://github.com/sayedshaun/localtex" target="_blank" rel="noopener">View source</a>
       </div>
       <div class="hero-shot">
         <img src="screenshot.png" alt="LocalTeX window showing the file tree, LaTeX source with syntax highlighting, document outline, and a live PDF preview side by side" />
@@ -550,8 +547,8 @@
 
     <section class="doc" id="why">
       <h2>Why LocalTeX</h2>
-      <p>Overleaf is great until you need it offline, want your files to actually live on your disk, or just don't want to pay for compile priority on your own laptop. LocalTeX gives you that same editor-plus-preview workflow, backed by a real filesystem and a real shell, with nothing running outside your machine.</p>
-      <p>Every project lives under <code class="inline">~/LocalTeX-Projects</code> as plain files — <code class="inline">.tex</code>, <code class="inline">.bib</code>, images, whatever your document needs. Nothing is silently synced anywhere.</p>
+      <p>Overleaf is great until you need it offline, want your files to actually live on your computer, or just don't want to pay for faster compiling on your own laptop. LocalTeX gives you that same writing-and-preview experience, with nothing running outside your machine and no account required.</p>
+      <p>Every project lives on your computer as plain files — <code class="inline">.tex</code>, <code class="inline">.bib</code>, images, whatever your document needs — so you can back them up, move them, or open them in any other program you like. Nothing is silently uploaded anywhere.</p>
     </section>
 
     <section class="doc" id="features">
@@ -564,11 +561,11 @@
         </div>
         <div class="feature">
           <h3>Live editor</h3>
-          <p>CodeMirror 6 with LaTeX syntax highlighting, autosave, undo/redo, find/replace, a symbol toolbar, and a document outline.</p>
+          <p>LaTeX syntax highlighting, autosave, undo/redo, find/replace, a symbol toolbar, and a document outline that jumps you straight to any section.</p>
         </div>
         <div class="feature">
           <h3>Real compiler</h3>
-          <p><a href="https://tectonic-typesetting.github.io/" target="_blank" rel="noopener">Tectonic</a> — a self-contained LaTeX engine, so there's no multi-gigabyte TeX Live install. Errors surface inline.</p>
+          <p>Compiles your document with a self-contained LaTeX engine, so there's no multi-gigabyte TeX Live install to set up first. Errors show up right where they happened.</p>
         </div>
         <div class="feature">
           <h3>SyncTeX</h3>
@@ -576,11 +573,11 @@
         </div>
         <div class="feature">
           <h3>Real terminal</h3>
-          <p>A genuine PTY-backed shell (<code>node-pty</code>), not a simulation. Dockable to the bottom or side, resizable.</p>
+          <p>A genuine terminal built in, not a fake console. Dock it to the bottom or side, and resize it however you like.</p>
         </div>
         <div class="feature">
           <h3>PDF preview</h3>
-          <p>Rendered with <code>pdf.js</code> at supersampled resolution for crisp text. Foldable, resizable split view, Ctrl+scroll zoom.</p>
+          <p>A crisp, high-resolution preview that updates as you compile. Foldable, resizable split view, plus zoom with Ctrl+scroll or a touchpad pinch.</p>
         </div>
         <div class="feature">
           <h3>Project-wide search</h3>
@@ -603,12 +600,13 @@
 
     <section class="doc" id="install">
       <h2>Install</h2>
-      <p class="dek">Debian/Ubuntu-based Linux (apt-based) and Windows 10/11 are supported.</p>
+      <p class="dek">Debian/Ubuntu-based Linux (apt-based), Windows 10/11, and macOS are supported.</p>
 
       <div class="tabs">
         <div class="tab-buttons" role="tablist">
           <button class="tab-btn active" role="tab" aria-selected="true" data-tab="linux">Linux</button>
           <button class="tab-btn" role="tab" aria-selected="false" data-tab="windows">Windows</button>
+          <button class="tab-btn" role="tab" aria-selected="false" data-tab="macos">macOS</button>
         </div>
 
         <div class="tab-panel active" data-panel="linux">
@@ -645,9 +643,34 @@ sudo apt install ./localtex.deb</code></pre>
             </li>
           </ol>
         </div>
+
+        <div class="tab-panel" data-panel="macos">
+          <ol class="steps">
+            <li>
+              <strong>Download and install the app</strong>
+              <p class="tight">Grab <code class="inline">localtex.dmg</code> from <a href="https://github.com/sayedshaun/localtex/releases/latest" target="_blank" rel="noopener">Releases</a>, open it, and drag <strong>LocalTeX</strong> into your <strong>Applications</strong> folder.</p>
+            </li>
+            <li>
+              <strong>Bypass Gatekeeper (first launch only)</strong>
+              <p class="tight">The app isn't notarized with an Apple Developer certificate, so right-click it in <strong>Applications</strong> and choose <strong>Open</strong> instead of double-clicking — or clear the quarantine flag yourself:</p>
+              <div class="code-panel">
+                <div class="code-bar"><span>bash</span><button class="copy-btn" data-copy>Copy</button></div>
+                <pre><code>xattr -cr /Applications/LocalTeX.app</code></pre>
+              </div>
+            </li>
+            <li>
+              <strong>Install Tectonic</strong>
+              <p class="tight">Needed on <code class="inline">PATH</code> to actually compile documents:</p>
+              <div class="code-panel">
+                <div class="code-bar"><span>bash</span><button class="copy-btn" data-copy>Copy</button></div>
+                <pre><code>brew install tectonic</code></pre>
+              </div>
+            </li>
+          </ol>
+        </div>
       </div>
 
-      <div class="note"><strong>Note —</strong> the <code class="inline">.deb</code> and <code class="inline">.exe</code> for each release are built and published automatically by a <a href="https://github.com/sayedshaun/localtex/blob/main/.github/workflows/release.yml" target="_blank" rel="noopener">GitHub Actions workflow</a>, so what you download always matches the tagged source.</div>
+      <div class="note"><strong>Note —</strong> every download comes straight from the official <a href="https://github.com/sayedshaun/localtex/releases/latest" target="_blank" rel="noopener">Releases page</a>, built automatically from the published source code.</div>
     </section>
 
     <section class="doc" id="uninstall">
@@ -665,32 +688,18 @@ rm -f ~/.local/bin/tectonic</code></pre>
       </div>
       <h3>Windows</h3>
       <p>Uninstall LocalTeX from Windows Settings → Apps, same as any other app. It won't touch your <code class="inline">LocalTeX-Projects</code> folder or your Tectonic install.</p>
-    </section>
-
-    <section class="doc" id="contributing">
-      <h2>Contributing</h2>
-      <p class="dek">Issues and pull requests are welcome.</p>
-      <h3>Development</h3>
+      <h3>macOS</h3>
+      <p>Drag <strong>LocalTeX</strong> from <strong>Applications</strong> to the Trash. It won't touch your <code class="inline">~/LocalTeX-Projects</code> files or your Tectonic install — remove those yourself if you no longer need them:</p>
       <div class="code-panel">
         <div class="code-bar"><span>bash</span><button class="copy-btn" data-copy>Copy</button></div>
-        <pre><code>npm install
-npm run electron:dev</code></pre>
-      </div>
-      <p><code class="inline">npm install</code> downloads the Electron runtime itself on first run (a prebuilt Chromium/Node binary, fetched from GitHub) — make sure you're online.</p>
-      <h3>Requirements</h3>
-      <p>Node.js 18+, <code class="inline">build-essential</code> (Linux build deps), and <a href="https://tectonic-typesetting.github.io/" target="_blank" rel="noopener">Tectonic</a> on <code class="inline">PATH</code>. <code class="inline">install.sh</code> sets all of this up automatically.</p>
-      <h3>Releasing</h3>
-      <p>Pushing a tag matching <code class="inline">v*.*.*</code> triggers CI, which builds the <code class="inline">.deb</code> and <code class="inline">.exe</code> and attaches them to the release:</p>
-      <div class="code-panel">
-        <div class="code-bar"><span>bash</span><button class="copy-btn" data-copy>Copy</button></div>
-        <pre><code>git tag v0.1.1
-git push origin v0.1.1</code></pre>
+        <pre><code>rm -rf ~/LocalTeX-Projects
+brew uninstall tectonic</code></pre>
       </div>
     </section>
 
     <footer>
-      <span>LocalTeX — a local-first LaTeX IDE.</span>
-      <span>Built with Electron, CodeMirror, and Tectonic.</span>
+      <span>LocalTeX — a local-first LaTeX editor.</span>
+      <span>Want to help build it? See the <a href="https://github.com/sayedshaun/localtex/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener">developer guide</a> on GitHub.</span>
     </footer>
   </main>
 
@@ -701,7 +710,6 @@ git push origin v0.1.1</code></pre>
       <li><a href="#features">Features</a></li>
       <li><a href="#install">Install</a></li>
       <li><a href="#uninstall">Uninstall</a></li>
-      <li><a href="#contributing">Contributing</a></li>
     </ul>
   </nav>
 </div>
